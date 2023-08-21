@@ -115,7 +115,7 @@ t_LOR  = r'\|\|'
 t_EXP = r'\*\*='
 
 # Match predicates before IDs
-t_UNARY_PREDICATE_BRIDGE = r'-[a-zA-Z]+'
+t_UNARY_PREDICATE_BRIDGE = r'-[a-zA-Z]\w*'
 
 # Match import path before id
 def t_IMPORT_PATH(t):

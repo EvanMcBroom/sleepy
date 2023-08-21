@@ -78,7 +78,7 @@ class TestParser(unittest.TestCase):
         for path, content in corpus('*.sl'):
             if path.split(os.sep)[-1] in illformedScripts:
                 continue
-            parser = SleepParser(debug=True)
+            parser = SleepParser(debug=True, failfast=True)
             parser.parse(content, tracking=True)
 
     def test_error_handling(self):

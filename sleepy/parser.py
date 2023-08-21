@@ -2,39 +2,12 @@
 
 import os
 from ply import *
+from sleepy.ast import *
 from sleepy.lexer import *
 
 failfast = False
-quiet = False
-
 parser = None
-
-class Type:
-    abbreviation = 'type'
-
-    def __init__(self, data = ''):
-         self.data = data
-    
-    def __repr__(self):
-        return '{}({})'.format(self.abbreviation, self.data)
-
-class Address(Type):
-    abbreviation = 'Addr'
-
-class Block(Type):
-    abbreviation = 'Block'
-
-class Expression(Type):
-    abbreviation = 'Expr'
-
-class JavaClass(Type):
-    abbreviation = 'JavaClass'
-
-class ObjectExpression(Type):
-    abbreviation = 'ObjExpr'
-
-class Variable(Type):
-    abbreviation = 'Var'
+quiet = False
 
 # Tokens are ordered from lowest to highest precedence
 # Using the C++ and Python precedence rules
@@ -113,37 +86,45 @@ def p_assignment_operator(p):
 def p_backtick_expr(p):
     ''' backtick_expr : BACKTICK_EXPR
     '''
-    p[0] = Expression(p[1])
+    p[0] = Constant(
+        value=backtick_expression(p[1])
+    )
 
 def p_object_expr(p):
     ''' object_expr : OBJECT_EXPR
     '''
-    p[0] = ObjectExpression(p[1])
+    p[0] = Constant(
+        value=object_expression(p[1])
+    )
 
 def p_address(p):
     ''' address : ADDRESS
     '''
-    p[0] = Address(p[1])
+    p[0] = Constant(
+        value=address(p[1])
+    )
 
 def p_java_class(p):
     ''' java_class : JAVA_CLASS
     '''
-    p[0] = JavaClass(p[1])
+    p[0] = Constant(
+        value=java_class(p[1])
+    )
 
 def p_array(p):
     ''' array : '@' ID
     '''
-    p[0] = Variable(p[1] + p[2])
+    p[0] = array(p[1] + p[2])
 
 def p_hashtable(p):
     ''' hashtable : '%' ID
     '''
-    p[0] = Variable(p[1] + p[2])
+    p[0] = hashtable(p[1] + p[2])
 
 def p_scalar(p):
     ''' scalar : SCALAR
     '''
-    p[0] = Variable(p[1])
+    p[0] = scalar(p[1])
 
 def p_expression_binary(p):
     ''' expression : expression '-' expression
@@ -185,21 +166,36 @@ def p_expression_binary(p):
                    | expression ID expression %prec BINARY_PREDICATE_BRIDGE
                    | expression '!' ID expression %prec BINARY_PREDICATE_BRIDGE
                    | '(' expression ')'
-                   | expression '[' expression ']'
                    | rvalue
     '''
     if len(p) == 5:
-        if p[2] == '!': # expression '!' ID expression
-            p[0] = (p[2], (p[3], p[1], p[4]))
-        else: # expression '[' expression ']'
-            p[0] = ('index', p[1], p[3])
+        p[0] = UnaryOp(
+            op=p[2],
+            operand=BinOp(
+                left=p[1],
+                op=p[3],
+                right=p[4]
+            )
+        )
     elif len(p) == 4:
-        if p[1] != '(':
-            p[0] = (p[2], p[1], p[3])
-        else:
+        if p[1] == '(':
             p[0] = p[2]
+        else:
+            p[0] = BinOp(
+                left=p[1],
+                op=p[2],
+                right=p[3],
+            )
     else:
         p[0] = p[1]
+
+def p_expression_index(p):
+    ''' expression : expression '[' expression ']'
+    '''
+    p[0] = Index(
+        container=p[1],
+        element=p[3]
+    )
 
 def p_expression_unary_prefix(p):
     ''' expression : '+' expression %prec UNARY_PLUS
@@ -207,13 +203,19 @@ def p_expression_unary_prefix(p):
                    | '!' expression %prec LNOT
                    | UNARY_PREDICATE_BRIDGE expression
     '''
-    p[0] = (p[1], p[2])
+    p[0] = UnaryOp(
+        op=p[1],
+        operand=p[2]
+    )
 
 def p_expression_unary_postfix(p):
     ''' expression : expression INC
                    | expression DEC
     '''
-    p[0] = (p[2], p[1])
+    p[0] = UnaryOp(
+        op=p[2],
+        operand=p[1]
+    )
 
 def p_args(p):
     ''' args : args ',' expression
@@ -225,13 +227,24 @@ def p_args(p):
              | key_value_pair
              | empty
     '''
-    if len(p) == 4:
-        p[0] = p[1] + [p[3]]
+    arg = p[len(p) - 1]
+    if arg == ',':
+        p[0] = p[1]
     else:
-        if p[1]:
-            p[0] = [p[1]]
-        else: # empty
-            p[0] = []
+        if isinstance(arg, KvPair):
+            arg = Arg(
+                name=arg.name,
+                value=arg.value,
+            )
+        elif not isinstance(arg, Arg):
+            arg = Arg(
+                name=None,
+                value=arg,
+            )
+        if len(p) == 4:
+            p[0] = p[1] + [arg]
+        else: # len(p) == 2
+            p[0] = [arg]
 
 # args should be seperated by a comma but sleep allows for space seperators
 def p_args_error(p):
@@ -239,14 +252,19 @@ def p_args_error(p):
              | args error arg_passed_by_name
              | args error key_value_pair
     '''
+    if failfast:
+        raise SyntaxError(str(p))
     if not quiet:
         print('- Did you forget to add a comma?')
-    p[0] = p[1] + [p[3]]
+    p_args(p)
 
 def p_arg_passed_by_name(p):
     ''' arg_passed_by_name : ARG_PASSED_BY_NAME
     '''
-    p[0] = ('=>', p[1][1:], p[1][1:])
+    p[0] = Arg(
+        name=p[1][1:],
+        value=p[1][1:]
+    )
 
 # Normally, this should only be defined as ID ARROW rvalue
 # expression ARROW rvalue is used instead because expression includes ID
@@ -258,7 +276,10 @@ def p_arg_passed_by_name(p):
 def p_key_value_pair(p):
     ''' key_value_pair : expression ARROW expression
     '''
-    p[0] = (p[2], p[1], p[3])
+    p[0] = KvPair(
+        name=p[1],
+        value=p[3]
+    )
 
 def p_comment(p):
     ''' comment : COMMENT
@@ -267,32 +288,35 @@ def p_comment(p):
 
 def p_script(p):
     ''' script : script statement
-               | script flow_control
                | statement
-               | flow_control
                | EOF
     '''
-    statement = p[len(p) - 1]
-    # Statements will already be lists if they have an EOL comment
-    if type(statement) != list:
-        statement = [statement]
     if len(p) == 3:
-        p[0] = p[1] + statement
+        p[0] = Script(
+            body=p[1].body + [p[2]]
+        )
     else:
-        p[0] = statement
+        p[0] = Script(
+            body=[p[1]]
+        )
 
 def p_block(p):
     ''' block : '{' script '}'
               | '{' '}'
     '''
     if len(p) == 4:
-        p[0] = Block(p[2])
+        p[0] = Block(
+            body=p[2].body
+        )
     else:
-        p[0] = Block()
+        p[0] = Block(
+            body=[]
+        )
 
 def p_statement(p):
     ''' statement : command ';'
                   | comment
+                  | flow_control
     '''
     p[0] = p[1]
 
@@ -303,6 +327,8 @@ def p_statement_error(p):
     '''
     global parser
     parser.errok()
+    if failfast:
+        raise SyntaxError(str(p))
     if not quiet:
         print('- Did you forget to add a semicolon?')
     return p
@@ -328,31 +354,47 @@ def p_assertion(p):
     ''' assertion : ASSERT expression
                   | ASSERT expression ':' STRING
     '''
-    p[0] = tuple([*p[1:]])
+    if len(p) == 3:
+        p[0] = Assert(
+            test=p[2],
+            message=None
+        )
+    else:
+        p[0] = Assert(
+            test=p[2],
+            message=p[4]
+        )
 
 def p_callcc(p):    
     ''' callcc : CALLCC rvalue
     '''
-    p[0] = tuple([*p[1:]])
+    p[0] = Callcc(
+        closure=p[2]
+    )
 
 def p_function_call(p):
     '''function_call : ID '(' args ')'
                      | '%' '(' args ')'
                      | '@' '(' args ')'
     '''
-    if len(p) == 5:
-        p[0] = ('call', p[1], p[3])
-    else:
-        p[0] = ('call', p[2], p[4])
+    p[0] = Call(
+        function=p[1],
+        args=p[3],
+    )
 
 def p_import(p):
     ''' import : IMPORT import_target import_suffix
     '''
     suffix = p[3]
     if suffix:
-        p[0] = tuple([*p[1:]])
+        p[0] = ImportFrom(
+            target=p[2],
+            path=suffix
+        )
     else:     
-        p[0] = (p[1], p[2])
+        p[0] = Import(
+            target=p[2]
+        )
 
 def p_import_target(p):
     ''' import_target : import_target '.' ID
@@ -389,6 +431,8 @@ def p_lvalues(p):
 def p_lvalues_error(p):
     ''' lvalues : lvalues error lvalue
     '''
+    if failfast:
+        raise SyntaxError(str(p))
     if not quiet:
         print('- Did you forget to add a comma?')
     p[0] = p[1] + [p[3]]
@@ -404,21 +448,27 @@ def p_lvalue_tuple(p):
 def p_tuple_assignment(p):
     ''' tuple_assignment : lvalue_tuple assignment_operator expression
     '''
-    if len(p) == 4:
-        p[0] = (p[2], p[1], p[3])
-    else:
-        p[0] = (p[2], p[1])
+    p[0] = BinOp(
+        left=p[1],
+        op=p[2],
+        right=p[3]
+    )
 
 def p_return(p):
     ''' return : RETURN expression
                | RETURN
     '''
-    p[0] = tuple([*p[1:]])
+    value = None if len(p) == 2 else p[2]
+    p[0] = Return(
+        value=value
+    )
 
 def p_throw(p):
     ''' throw : THROW expression
     '''
-    p[0] = tuple([*p[1:]])
+    p[0] = Throw(
+        value=p[2]
+    )
 
 def p_flow_control(p):
     ''' flow_control : assignment_loop
@@ -434,12 +484,21 @@ def p_flow_control(p):
 def p_assignment_loop(p):
     ''' assignment_loop : WHILE SCALAR '(' expression ')' block
     '''
-    p[0] = (p[1], p[2], p[4], p[6])
+    p[0] = Foreach(
+        index=None,
+        value=p[2],
+        generator=p[4],
+        body=p[6].body
+    )
 
 def p_conditional(p):
     ''' conditional : IF '(' expression ')' block else
     '''
-    p[0] = (p[1], p[3], p[5], p[6])
+    p[0] = If(
+        test=p[3],
+        body=p[5].body,
+        orelse=p[6]
+    )
 
 def p_conditional_else(p):
     ''' else : ELSE conditional
@@ -447,22 +506,45 @@ def p_conditional_else(p):
              | empty
     '''
     if len(p) == 3:
-        p[0] = tuple([*p[1:]])
+        if isinstance(p[2], If):
+            p[0] = [p[2]]
+        else: # ELSE block
+            p[0] = p[2].body
+    else: # empty
+        p[0] = []
 
 # Docs: 9.3 "Extend Sleep"
+# The "predicate" variant of a sleep bridge is currently not supported
+# because it'd cause an ambigious grammar with the function_call rule
+# Example: keyword (predicate) { commands; }
 def p_environment_bridge(p):
     ''' environment_bridge : ID ID block
                            | ID ID STRING block
     '''
-    if len(p) == 4 or len(p) == 5:
-        p[0] = tuple([*p[1:]])
-    else:
-        p[0] = (p[1], p[3], p[5])
+    if len(p) == 4:
+        p[0] = EnvBridge(
+            keyword=p[1],
+            identifier=p[2],
+            string=None,
+            body=p[3].body
+        )
+    else: # ID ID STRING block
+        p[0] = EnvBridge(
+            keyword=p[1],
+            identifier=p[2],
+            string=p[3],
+            body=p[4].body
+        )
 
 def p_for_loop(p):
     ''' for_loop : FOR '(' for_loop_initializer ';' expression ';' for_loop_increment ')' block
     '''
-    p[0] = (p[1], p[3], p[5], p[7], p[9])
+    p[0] = For(
+        initializer=p[3],
+        test=p[5],
+        increment=p[7],
+        body=p[9]
+    )
 
 def p_for_loop_initializer(p):
     ''' for_loop_initializer : for_loop_initializer ',' expression
@@ -488,9 +570,19 @@ def p_foreach(p):
                 | FOREACH SCALAR '(' foreach_generator ')' block
     '''
     if len(p) == 9:
-        p[0] = (p[1], (p[3], p[2], p[4]), p[6], p[8])
+        p[0] = Foreach(
+            index=p[2],
+            value=p[4],
+            generator=p[6],
+            body=p[8].body
+        )
     else:
-        p[0] = (p[1], p[2], p[4], p[6])
+        p[0] = Foreach(
+            index=None,
+            value=p[2],
+            generator=p[4],
+            body=p[6].body
+        )
 
 def p_foreach_generator(p):
     ''' foreach_generator : expression
@@ -500,31 +592,39 @@ def p_foreach_generator(p):
 def p_trycatch(p):
     ''' trycatch : TRY block CATCH SCALAR block
     '''
-    p[0] = ('trycatch', p[2], p[4], p[5])
+    p[0] = Try(
+        body=p[2].body,
+        handler=Catch(
+            value=p[4],
+            body=p[5].body
+        )
+    )
 
 def p_while_loop(p):
     ''' while_loop : WHILE '(' expression ')' block
     '''
-    p[0] = (p[1], p[3], p[5])
+    p[0] = While(
+        test=p[3],
+        body=p[5].body
+    )
 
 def p_yield(p):
     ''' yield : YIELD
               | YIELD expression
     '''
-    p[0] = tuple([*p[1:]])
+    value = None if len(p) == 2 else p[2]
+    p[0] = Yield(
+        value=value
+    )
 
 # Error formatting
 class SyntaxError(Exception):
     pass
 
-syntaxErrors = list()
-
 def p_error(p):
-    global syntaxErrors
-    syntaxErrors += [p]
     if failfast:
         raise SyntaxError(str(p))
-    elif not quiet:
+    if not quiet:
         if p:
             print('Syntax error at line {}: {}'.format(p.lineno,str(p)))
         else:
