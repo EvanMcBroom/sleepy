@@ -45,17 +45,17 @@ def p_rvalue(p):
                | backtick_expr
                | block
                | function_call
+               | identifier
                | java_class
+               | literal
                | lvalue
                | object_expr
+               | string
                | DOUBLE
                | FALSE
-               | ID
-               | LITERAL
                | LONG
                | NULL
                | NUMBER
-               | STRING
                | TRUE
     '''
     p[0] = p[1]
@@ -83,48 +83,56 @@ def p_assignment_operator(p):
     '''
     p[0] = p[1]
 
-def p_backtick_expr(p):
-    ''' backtick_expr : BACKTICK_EXPR
-    '''
-    p[0] = Constant(
-        value=backtick_expression(p[1])
-    )
-
-def p_object_expr(p):
-    ''' object_expr : OBJECT_EXPR
-    '''
-    p[0] = Constant(
-        value=object_expression(p[1])
-    )
-
 def p_address(p):
     ''' address : ADDRESS
     '''
-    p[0] = Constant(
-        value=address(p[1])
-    )
-
-def p_java_class(p):
-    ''' java_class : JAVA_CLASS
-    '''
-    p[0] = Constant(
-        value=java_class(p[1])
-    )
+    p[0] = address(p[1])
 
 def p_array(p):
     ''' array : '@' ID
     '''
     p[0] = array(p[1] + p[2])
 
+
+def p_backtick_expr(p):
+    ''' backtick_expr : BACKTICK_EXPR
+    '''
+    p[0] = backtick_expression(p[1])
+
 def p_hashtable(p):
     ''' hashtable : '%' ID
     '''
     p[0] = hashtable(p[1] + p[2])
 
+def p_identifier(p):
+    ''' identifier : ID
+    '''
+    p[0] = identifier(p[1])
+
+def p_java_class(p):
+    ''' java_class : JAVA_CLASS
+    '''
+    p[0] = java_class(p[1])
+
+def p_literal(p):
+    ''' literal : LITERAL
+    '''
+    p[0] = literal(p[1])
+
+def p_object_expr(p):
+    ''' object_expr : OBJECT_EXPR
+    '''
+    p[0] = object_expression(p[1])
+
 def p_scalar(p):
     ''' scalar : SCALAR
     '''
     p[0] = scalar(p[1])
+
+def p_string(p):
+    ''' string : STRING
+    '''
+    p[0] = string(p[1])
 
 def p_expression_binary(p):
     ''' expression : expression '-' expression
@@ -488,7 +496,7 @@ def p_assignment_loop(p):
         index=None,
         value=p[2],
         generator=p[4],
-        body=p[6].body
+        body=p[6]
     )
 
 def p_conditional(p):
@@ -496,7 +504,7 @@ def p_conditional(p):
     '''
     p[0] = If(
         test=p[3],
-        body=p[5].body,
+        body=p[5],
         orelse=p[6]
     )
 
@@ -509,7 +517,7 @@ def p_conditional_else(p):
         if isinstance(p[2], If):
             p[0] = [p[2]]
         else: # ELSE block
-            p[0] = p[2].body
+            p[0] = p[2]
     else: # empty
         p[0] = []
 
@@ -526,14 +534,14 @@ def p_environment_bridge(p):
             keyword=p[1],
             identifier=p[2],
             string=None,
-            body=p[3].body
+            body=p[3]
         )
     else: # ID ID STRING block
         p[0] = EnvBridge(
             keyword=p[1],
             identifier=p[2],
             string=p[3],
-            body=p[4].body
+            body=p[4]
         )
 
 def p_for_loop(p):
@@ -574,14 +582,14 @@ def p_foreach(p):
             index=p[2],
             value=p[4],
             generator=p[6],
-            body=p[8].body
+            body=p[8]
         )
     else:
         p[0] = Foreach(
             index=None,
             value=p[2],
             generator=p[4],
-            body=p[6].body
+            body=p[6]
         )
 
 def p_foreach_generator(p):
@@ -593,10 +601,10 @@ def p_trycatch(p):
     ''' trycatch : TRY block CATCH SCALAR block
     '''
     p[0] = Try(
-        body=p[2].body,
+        body=p[2],
         handler=Catch(
             value=p[4],
-            body=p[5].body
+            body=p[5]
         )
     )
 
@@ -605,7 +613,7 @@ def p_while_loop(p):
     '''
     p[0] = While(
         test=p[3],
-        body=p[5].body
+        body=p[5]
     )
 
 def p_yield(p):

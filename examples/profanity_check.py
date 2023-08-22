@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import pathlib
 import sys
 from profanity_check import predict

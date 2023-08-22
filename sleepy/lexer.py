@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import decimal
-import fractions
 from ply import *
 
 debug = False
@@ -17,7 +15,6 @@ keywords = (
     'continue',
     'done',
     'else',
-    'false',
     'for',
     'foreach',
     'from',
@@ -26,7 +23,6 @@ keywords = (
     'import',
     'return',
     'throw',
-    'true',
     'try',
     'while',
     'yield'
@@ -60,6 +56,7 @@ tokens = tuple(keywords.values()) + assignment_operators + (
     'EQI', # Equal identity
     'EXP',
     'EXPEQUAL',
+    'FALSE',
     'GE',
     'ID',
     'IMPORT_PATH',
@@ -80,11 +77,29 @@ tokens = tuple(keywords.values()) + assignment_operators + (
     'SCALAR',
     'SPACESHIP',
     'STRING',
+    'TRUE',
     'UNARY_PREDICATE_BRIDGE'
 )
 
 # These will be checked last
 literals = "!.&@,/=%\\-+x*^|:;{\}[]()<>"
+
+# Constants
+
+def t_FALSE(t):
+    r"false"
+    t.value = False
+    return t
+
+def t_NULL(t):
+    r"\$null"
+    t.value = None
+    return t
+
+def t_TRUE(t):
+    r"true"
+    t.value = True
+    return t
 
 # Assignment operators
 t_ANDEQUAL    = r'&='
@@ -133,7 +148,6 @@ t_ADDRESS            = r'\&[a-zA-Z_][a-zA-Z_0-9]*'
 t_ARROW              = r'=>'
 t_JAVA_CLASS         = r'\^([a-zA-Z_$][a-zA-Z\d_$]*\.)*[a-zA-Z_$][a-zA-Z\d_$]*'
 t_ARG_PASSED_BY_NAME = r'\\(\@|\%|\$)[a-zA-Z_][a-zA-Z_0-9]*'
-t_NULL               = r'\$null'
 t_SCALAR             = r'(\$\w+|\$\+)'
 
 # Comparisons
@@ -152,7 +166,7 @@ def t_BACKTICK_EXPR(t):
 
 def t_DOUBLE(t):
     r'\d+\.\d+'
-    t.value = fractions.Fraction(t.value)
+    t.value = float(t.value)
     return t
 
 def t_LITERAL(t):
@@ -171,7 +185,8 @@ def t_NUMBER(t):
         t.value = int(t.value, 16)
     elif t.value[0] == '0':
         t.value = int(t.value, 8)
-    t.value = decimal.Decimal(t.value)
+    else:
+        t.value = int(t.value)
     return t
 
 def t_STRING(t):
