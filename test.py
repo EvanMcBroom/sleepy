@@ -50,7 +50,7 @@ def corpus(glob):
         with open(path, 'r') as file:
             yield (str(path), file.read())
 
-class TestLexer(unittest.TestCase):
+class TestCase1Lexer(unittest.TestCase):
     def test_corpus(self):
         for path, content in corpus('*.sl'):
             if path.split(os.sep)[-1] in illformedScripts:
@@ -73,7 +73,7 @@ class TestLexer(unittest.TestCase):
             except IllegalCharacter:
                 pass
 
-class TestParser(unittest.TestCase):
+class TestCase2Parser(unittest.TestCase):
     def test_corpus(self):
         for path, content in corpus('*.sl'):
             if path.split(os.sep)[-1] in illformedScripts:
@@ -93,6 +93,33 @@ class TestParser(unittest.TestCase):
                 pass
             except SyntaxError:
                 pass
-                
+
+class TestCase3Ast(unittest.TestCase):
+    def __token_stream(self, content):
+        lexer = SleepLexer()
+        lexer.input(content)
+        return [_ for _ in lexer.token_stream]
+
+    def test_formatting(self):
+        for path, content in corpus('*.sl'):
+            if path.split(os.sep)[-1] in illformedScripts:
+                continue
+            # Get the original token stream
+            tokenList1 = self.__token_stream(content)
+            # Parse the script and format the AST
+            ast = SleepParser(failfast=True).parse(content, tracking=True)
+            formattedContent = format(ast)
+            # Get the new token stream
+            tokenList2 = self.__token_stream(formattedContent)
+            # Check that they're the same
+            self.assertEqual(len(tokenList1), len(tokenList2))
+            for token1, token2 in zip(tokenList1, tokenList2):
+                self.assertEqual(token1.type, token2.type)
+                # Temporary normilization until object expressions are fully parsed
+                if token1.type == 'OBJECT_EXPR':
+                    token1.value = re.sub(' +', ' ', token1.value)
+                    token2.value = re.sub(' +', ' ', token2.value)
+                self.assertEqual(token1.value, token2.value)
+ 
 if __name__ == '__main__':
     unittest.main()

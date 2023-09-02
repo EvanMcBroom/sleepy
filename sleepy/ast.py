@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+import itertools
+import re
 import typing
 from dataclasses import dataclass
+from sleepy.lexer import t_LITERAL, t_STRING
 
+_literalRegex = re.compile(t_LITERAL.__doc__)
+_stringRegex = re.compile(t_STRING.__doc__)
+
+# Formatting options
 eol = '\n'
 indention = '    '
 
@@ -12,10 +19,7 @@ indention = '    '
 
 class AST:
     start_lineno: int
-    end_lineno: int | None
-
-class exception_handler(AST):
-    ...
+    comment: str | None # Inline comment
 
 class flow_control(AST):
     ...
@@ -24,88 +28,83 @@ class command(AST):
     ...
 
 class expression(command):
-    ...
+    parenthesized: bool = False
 
-_format_expression = lambda value: value.format() if isinstance(value, expression) else str(value)
-
-# Base Types
-
-class address(str):
-    ...
-
-class array(str):
-    ...
-
-class backtick_expression(str):
     def __str__(self):
-        return '`{}`'.format(str.__str__(self))
-
-class hashtable(str):
-    ...
-
-class identifier(str):
-    ...
-
-class java_class(str):
-    ...
-
-class literal(str):
-    def __str__(self):
-        return "'{}'".format(str.__str__(self))
-
-class long(int):
-    def __str__(self):
-        return '{}L'.format(int.__str__(self))
-
-class object_expression(str):
-    def __str__(self):
-        return '[{}]'.format(str.__str__(self))
-
-class scalar(str):
-    ...
-
-class string(str):
-    def __str__(self):
-        return '"{}"'.format(str.__str__(self))
+        return self.parenthesize(str.__str__(self))
     
+    def parenthesize(self, value: str):
+        return '({})'.format(value) if self.parenthesized else value
+
 # High level classes
 
 @dataclass
 class Arg(AST):
-    name: str | expression | None
-    value: expression
+    name: str | int | expression | None
+    value: expression | None
+    trailing_sep: bool = False
 
-    def format(self):
-        return (self.name + ' => ' if self.name else '') + _format_expression(self.value)
+    def __str__(self):
+        trailing_sep = ',' if self.trailing_sep else ''
+        return self.name if self.value == None else (str(self.name) + ' => ' if self.name != None else '') + str(self.value) + trailing_sep
     
-@dataclass
-class Block(expression):
-    body: list[command | flow_control]
+# Values
 
-    def format(self):
-        body = [
-            indention + 
-            # Add indentions for nested blocks if needed
-            _.format().replace(eol, eol + indention) +
-            (';' + eol if isinstance(_, command) else '')
-            for _ in self.body
-        ]
-        return '{' + eol + ''.join(body) + '}'
+@dataclass
+class Boolean(AST):
+    value: bool
+
+    def __str__(self):
+        return 'true' if self.value else 'false'
+
+@dataclass
+class Null(AST):
+    def __str__(self):
+        return '$null'
+     
+@dataclass
+class Long(AST):
+    value: int
+
+    def __str__(self):
+        return str(self.value) + 'L'
+    
+# Single line comment
+@dataclass
+class Comment(AST):
+    message: str
+
+    def __str__(self):
+        return '# ' + self.message
     
 @dataclass
 class KvPair(AST):
     name: expression
     value: expression
 
-    def format(self):
+    def __str__(self):
         return self.name + ' => ' + self.value
     
+@dataclass
+class LineBreak(AST):
+    count: int
+
+    def __str__(self):
+        return ''
+
+@dataclass
+class LvalueTuple(AST):
+    values: tuple
+
+    def __str__(self):
+        return '({})'.format(', '.join(_ for _ in self.values))
+      
 @dataclass
 class Script(AST):
     body: list[flow_control | command]
 
-    def format(self):
-        body = [_.format() + (';' if isinstance(_, command) else '') for _ in self.body if _]
+    def __str__(self):
+        body = [str(_) + (';' if isinstance(_, command) else '') for _ in self.body if _]
         return eol.join(body)
     
 # Commands
@@ -113,84 +112,83 @@ class Script(AST):
 @dataclass
 class Assert(command):
     test: expression
-    message: expression | None
+    message: string | None
 
-    def format(self):
-        return 'assert {}{}'.format(self.test, ' : ' + self.message.format() if self.message else '')
+    def __str__(self):
+        return 'assert {}{}'.format(self.test, ' : ' + str(self.message) if self.message != None else '')
     
 @dataclass
 class Break(command):
-    def format(self):
+    def __str__(self):
         return 'break'
 
 @dataclass
 class Callcc(command):
     closure: AST
 
-    def format(self):
-        return 'callcc {}'.format(self.closure.format())
+    def __str__(self):
+        return 'callcc {}'.format(self.closure)
 
 @dataclass
 class Continue(command):
-    def format(self):
+    def __str__(self):
         return 'continue'
 
 @dataclass
 class Done(command):
-    def format(self):
+    def __str__(self):
         return 'done'
 
 @dataclass
 class Halt(command):
-    def format(self):
+    def __str__(self):
         return 'halt'
 
 @dataclass
 class Import(command):
     target: str
+    path: str | None
 
-    def format(self):
-        return 'import {}'.format(self.target.format())
+    def __str__(self):
+        return 'import {}{}'.format(self.target, ' from: {}'.format(self.path) if self.path != None else '')
 
 @dataclass
-class ImportFrom(command):
-    target: str
-    path: str
-
-    def format(self):
-        return 'import {} from {}'.format(self.target.format(), self.path.format())
-
+class Nop(command):
+    def __str__(self):
+        return ''
+    
 @dataclass
 class Return(command):
-    value: expression | None
+    value: expression | object | None
 
-    def format(self):
-        return 'return{}'.format(' ' + self.value.format() if self.value else '')
+    def __str__(self):
+        return 'return{}'.format(' ' + str(self.value) if self.value != None else '')
     
 @dataclass
 class Throw(command):
     value: expression
 
-    def format(self):
-        return 'throw {}'.format(self.value.format())
+    def __str__(self):
+        return 'throw {}'.format(self.value)
 
 @dataclass
 class Yield(command):
     value: expression | None
 
-    def format(self):
-        return 'yield{}'.format(' ' + self.value.format() if self.value else '')
+    def __str__(self):
+        return 'yield{}'.format(' ' + str(self.value) if self.value != None else '')
 
 # Flow control
 
 @dataclass
-class Catch(flow_control):
-    value: object
+class AssignLoop(flow_control):
+    value: str
+    generator: expression
     body: Block
-    
-    def format(self):
-        return 'catch {} {}'.format(self.value.format(), self.body.format())
 
+    def __str__(self):
+        return 'while {} ({}) {}'.format(self.value, self.generator, self.body)
+    
 @dataclass
 class EnvBridge(flow_control):
     keyword: str
@@ -198,8 +196,8 @@ class EnvBridge(flow_control):
     string: str | None
     body: Block
     
-    def format(self):
-        return '{} {}{} {}'.format(self.keyword, self.identifier, (self.string if self.string else ''), self.body.format())
+    def __str__(self):
+        return '{} {}{} {}'.format(self.keyword, self.identifier, (self.string if self.string != None else ''), self.body)
 
 @dataclass
 class For(flow_control):
@@ -208,14 +206,14 @@ class For(flow_control):
     increment: list[expression]
     body: Block
 
-    def format(self):
-        test = self.test.format()
+    def __str__(self):
+        test = str(self.test)
         if test:
             test = ' ' + test
-        increment = ', '.join(_.format() for _ in self.increment)
+        increment = ', '.join(str(_) for _ in self.increment)
         if increment:
             increment = ' ' + increment
-        return 'for ({};{};{}) {}'.format(', '.join(_.format() for _ in self.initializer), test, increment, self.body.format())
+        return 'for ({};{};{}) {}'.format(', '.join(str(_) for _ in self.initializer), test, increment, self.body)
     
 @dataclass
 class Foreach(flow_control):
@@ -224,8 +222,8 @@ class Foreach(flow_control):
     generator: expression
     body: Block
 
-    def format(self):
-        return 'foreach {}{} ({}) {}'.format((self.index + ' => ' if self.index else ''), self.value, self.generator.format(), self.body.format())
+    def __str__(self):
+        return 'foreach {}{} ({}) {}'.format((self.index + ' => ' if self.index else ''), self.value, self.generator, self.body)
 
 @dataclass
 class If(flow_control):
@@ -233,57 +231,145 @@ class If(flow_control):
     body: Block
     orelse: If | Block | None
 
-    def format(self):
-        return 'if ({}) {}{}'.format(self.test, self.body.format(), eol + 'else ' + self.orelse.format() if self.orelse else '')
+    def __str__(self):
+        return 'if ({}) {}{}'.format(self.test, self.body, (eol + 'else ' + str(self.orelse)) if self.orelse else '')
     
 @dataclass
-class Try(flow_control):
+class TryCatch(flow_control):
     body: Block
-    handler: exception_handler
+    value: object
+    handler: Block
 
-    def format(self):
-        return 'try {}{}{}'.format(self.body.format(), eol, self.handler.format())
-    
+    def __str__(self):
+        return 'try {}{}catch {} {}'.format(self.body, eol, self.value, self.handler)
+     
 @dataclass
 class While(flow_control):
     test: expression
     body: Block
 
-    def format(self):
-        return 'while ({}) {}'.format(self.test.format(), self.body.format())
-    
+    def __str__(self):
+        return 'while ({}) {}'.format(self.test, self.body)
+
+
+# Values
+
+class address(expression, str):
+    ...
+
+class array(expression, str):
+    ...
+
+class backtick_expression(expression, str):
+    def __str__(self):
+        return self.parenthesize('`{}`'.format(str.__str__(self)))
+
+class hashtable(expression, str):
+    ...
+
+class identifier(expression, str):
+    ...
+
+class java_class(expression, str):
+    ...
+
+class literal(expression, str):
+    def __str__(self):
+        return self.parenthesize("'{}'".format(str.__str__(self)))
+
+class long(expression, int):
+    def __str__(self):
+        return self.parenthesize('{}L'.format(int.__str__(self)))
+
+class object_expression(expression, str):
+    def __str__(self):
+        return self.parenthesize('[{}]'.format(str.__str__(self)))
+
+class scalar(expression, str):
+    ...
+
+class string(expression, str):
+    def __str__(self):
+        return self.parenthesize('"{}"'.format(str.__str__(self)))
+     
 # Expressions
 
+@dataclass
+class Block(expression):
+    body: list[command | flow_control]
+
+    def __str__(self):
+        body = []
+        for statement in self.body:
+            formattedStatement = str(statement)
+            # Identify multiline literals and strings with embedded newlines
+            # These need to be gathered because they should not be indented
+            embeddedNewlines = [_ for _ in _literalRegex.finditer(formattedStatement) if eol in _.string]
+            embeddedNewlines += [_ for _ in _stringRegex.finditer(formattedStatement) if eol in _.string]
+            # Gather the indexes from the start of the original string of each embedded newline
+            embeddedNewlines = [
+                # Start of a multiline literal or string
+                result.span()[0] +
+                # Index of the embedded newline within it
+                _.span()[0]
+                for result in embeddedNewlines
+                    for _ in re.finditer(eol, result.group())
+            ]
+            # Build the final indented statement
+            # Approach built with help from: https://stackoverflow.com/a/28829204
+            indentedStatement = ''
+            for key, group in itertools.groupby(enumerate(formattedStatement), lambda _: not _[1] == eol):
+                if key:
+                    # Concatenate non-newlines to the final formatted statement without modifications
+                    indentedStatement += ''.join([char for _, char in group])
+                else:
+                    # For newlines, identify if its an embedded newline
+                    startingIndex, _ = next(group)
+                    eolCount = 1 + len(list(group))
+                    indentedStatement += (eol + indention if startingIndex not in embeddedNewlines else eol) * eolCount
+            # Add the statement to the body of the block
+            # Indent the first line which has not been done yet
+            body += [
+                indention + indentedStatement +
+                (';' if isinstance(statement, command) else '') + eol
+            ]
+        return self.parenthesize('{' + eol + ''.join(body) + '}')
+    
 @dataclass
 class Call(expression):
     function: str
     args: list[Arg]
 
-    def format(self):
-        return '{}({})'.format(self.function, ', '.join([_.format() for _ in self.args]))
+    def __str__(self):
+        return self.parenthesize('{}({})'.format(self.function, ', '.join([str(_) for _ in self.args])))
     
 @dataclass
 class BinOp(expression):
     left: expression
     op: str
     right: expression
+    negate: bool = False
 
-    def format(self):
-        return '{} {} {}'.format(_format_expression(self.left), self.op, _format_expression(self.right))
+    def __str__(self):
+        return self.parenthesize('{} {}{} {}'.format(self.left, '!' if self.negate else '', self.op, self.right))
     
 @dataclass
 class Index(expression):
     container: expression
     element: expression
 
-    def format(self):
-        return '{}[{}]'.format(_format_expression(self.container), _format_expression(self.element))
+    def __str__(self):
+        return self.parenthesize('{}[{}]'.format(self.container, self.element))
     
 @dataclass
 class UnaryOp(expression):
     op: str
     operand: expression
 
-    def format(self):
-        expression = _format_expression(self.operand)
-        return self.op + expression if self.op not in ['++', '--'] else expression + self.op
+    def __str__(self):
+        # Adding a space for predicate bridges
+        op = self.op + (' ' if len(self.op) > 1 and self.op[0] == '-' and self.op[1] != '-' else '')
+        return self.parenthesize(op + str(self.operand) if op not in ['++', '--'] else str(self.operand) + op)
+    
+def format(node: AST):
+    return str(node)

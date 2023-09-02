@@ -48,7 +48,6 @@ tokens = tuple(keywords.values()) + assignment_operators + (
     'ARG_PASSED_BY_NAME',
     'ARROW',
     'BACKTICK_EXPR',
-    'COMMENT',
     'DEC',
     'DOUBLE',
     'EOF',
@@ -135,7 +134,8 @@ t_UNARY_PREDICATE_BRIDGE = r'-[a-zA-Z]\w*'
 # Match import path before id
 def t_IMPORT_PATH(t):
     r"(\w+/)+\w+\.\w+"
-    t.value = t.value[1:-1]
+    if t.value[0] == '"' or t.value[0] == "'":
+        t.value = t.value[1:-1]
     return t
 
 # Matches IDs and keywords
@@ -145,9 +145,9 @@ def t_ID(t):
     return t
 
 t_ADDRESS            = r'\&[a-zA-Z_][a-zA-Z_0-9]*'
+t_ARG_PASSED_BY_NAME = r'\\(\@|\%|\$)[a-zA-Z_][a-zA-Z_0-9]*'
 t_ARROW              = r'=>'
 t_JAVA_CLASS         = r'\^([a-zA-Z_$][a-zA-Z\d_$]*\.)*[a-zA-Z_$][a-zA-Z\d_$]*'
-t_ARG_PASSED_BY_NAME = r'\\(\@|\%|\$)[a-zA-Z_][a-zA-Z_0-9]*'
 t_SCALAR             = r'(\$\w+|\$\+)'
 
 # Comparisons
@@ -164,9 +164,9 @@ def t_BACKTICK_EXPR(t):
     t.value = t.value[1:-1]
     return t
 
+# Do not convert to a float to maintain the original precision for formatting
 def t_DOUBLE(t):
     r'\d+\.\d+'
-    t.value = float(t.value)
     return t
 
 def t_LITERAL(t):
@@ -208,7 +208,6 @@ def t_ignore_COMMENT(t):
     r'\#.*\n'
     t.lexer.lineno += 1
 
-# Don't generate newline tokens when inside of parenthesis, brackets, or braces
 def t_newline(t):
     r'\n+'
     t.lexer.lineno += len(t.value)

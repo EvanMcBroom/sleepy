@@ -2,6 +2,7 @@
 
 import os
 from ply import *
+import re
 from sleepy.ast import *
 from sleepy.lexer import *
 
@@ -36,10 +37,10 @@ def p_empty(p):
     ''' empty : '''
     pass
 
-# An ID is only a valid rvalue when it is a previously defined
+# An identifier is only a valid rvalue when it is a previously defined
 # named parameter in a function call. Example:
 # - f(a => 1, a + 2 => 3)
-# If the ID is used correctly should be checked at runtime
+# If the identifier is used correctly should be checked at runtime
 def p_rvalue(p):
     ''' rvalue : address
                | backtick_expr
@@ -52,13 +53,39 @@ def p_rvalue(p):
                | object_expr
                | string
                | DOUBLE
-               | FALSE
-               | LONG
-               | NULL
+               | false
+               | long
+               | null
                | NUMBER
-               | TRUE
+               | true
     '''
     p[0] = p[1]
+
+def p_false(p):
+    ''' false : FALSE
+    '''
+    p[0] = Boolean(
+        value=False
+    )
+
+def p_long(p):
+    ''' long : LONG
+    '''
+    p[0] = Long(
+        value=p[1]
+    )
+
+def p_null(p):
+    ''' null : NULL
+    '''
+    p[0] = Null()
+
+def p_true(p):
+    ''' true : TRUE
+    '''
+    p[0] = Boolean(
+        value=True
+    )
 
 def p_lvalue(p):
     ''' lvalue : array
@@ -89,7 +116,7 @@ def p_address(p):
     p[0] = address(p[1])
 
 def p_array(p):
-    ''' array : '@' ID
+    ''' array : '@' identifier
     '''
     p[0] = array(p[1] + p[2])
 
@@ -100,7 +127,7 @@ def p_backtick_expr(p):
     p[0] = backtick_expression(p[1])
 
 def p_hashtable(p):
-    ''' hashtable : '%' ID
+    ''' hashtable : '%' identifier
     '''
     p[0] = hashtable(p[1] + p[2])
 
@@ -133,6 +160,17 @@ def p_string(p):
     ''' string : STRING
     '''
     p[0] = string(p[1])
+
+def p_expression_rvalue(p):
+    ''' expression : rvalue
+    '''
+    p[0] = p[1]
+
+def p_expression_parentheses(p):
+    ''' expression : '(' expression ')'
+    '''
+    p[2].parenthesized = True
+    p[0] = p[2]
 
 def p_expression_binary(p):
     ''' expression : expression '-' expression
@@ -171,31 +209,22 @@ def p_expression_binary(p):
                    | expression SPACESHIP expression
                    | expression TIMESEQUAL expression
                    | expression XOREQUAL expression
-                   | expression ID expression %prec BINARY_PREDICATE_BRIDGE
-                   | expression '!' ID expression %prec BINARY_PREDICATE_BRIDGE
-                   | '(' expression ')'
-                   | rvalue
+                   | expression identifier expression %prec BINARY_PREDICATE_BRIDGE
+                   | expression '!' identifier expression %prec BINARY_PREDICATE_BRIDGE
     '''
-    if len(p) == 5:
-        p[0] = UnaryOp(
-            op=p[2],
-            operand=BinOp(
-                left=p[1],
-                op=p[3],
-                right=p[4]
-            )
+    if len(p) == 5: # expression '!' identifier expression %prec BINARY_PREDICATE_BRIDGE
+        p[0] = operand=BinOp(
+            left=p[1],
+            op=p[3],
+            right=p[4],
+            negate=True
         )
-    elif len(p) == 4:
-        if p[1] == '(':
-            p[0] = p[2]
-        else:
-            p[0] = BinOp(
-                left=p[1],
-                op=p[2],
-                right=p[3],
-            )
     else:
-        p[0] = p[1]
+        p[0] = BinOp(
+            left=p[1],
+            op=p[2],
+            right=p[3],
+        )
 
 def p_expression_index(p):
     ''' expression : expression '[' expression ']'
@@ -236,8 +265,13 @@ def p_args(p):
              | empty
     '''
     arg = p[len(p) - 1]
-    if arg == ',':
+    if len(p) == 3:
+        p[1][-1].trailing_sep = True
         p[0] = p[1]
+    # Do not check for 'not arg'
+    # because it'll be true when arg is 0
+    elif arg == None: # empty
+        p[0] = []
     else:
         if isinstance(arg, KvPair):
             arg = Arg(
@@ -270,17 +304,17 @@ def p_arg_passed_by_name(p):
     ''' arg_passed_by_name : ARG_PASSED_BY_NAME
     '''
     p[0] = Arg(
-        name=p[1][1:],
-        value=p[1][1:]
+        name=p[1],
+        value=None
     )
 
-# Normally, this should only be defined as ID ARROW rvalue
-# expression ARROW rvalue is used instead because expression includes ID
-# According to the docs, %() should only take IDs for keys
+# Normally, this should only be defined as identifier ARROW rvalue
+# expression ARROW rvalue is used instead because expression includes identifier
+# According to the docs, %() should only take identifiers for keys
 # %() is actually treated by the unit tests as a normal function though (ex. closurekvp.sl)
 # So it's keys should take lvalues and numbers as well
 # Also, some unit tests use the result of expressions as keys (ex. multi.sl)
-# So it should take full expressions in addition to IDs, which will include lvalues and NUMBERs
+# So it should take full expressions in addition to identifiers, which will include lvalues and NUMBERs
 def p_key_value_pair(p):
     ''' key_value_pair : expression ARROW expression
     '''
@@ -288,11 +322,6 @@ def p_key_value_pair(p):
         name=p[1],
         value=p[3]
     )
-
-def p_comment(p):
-    ''' comment : COMMENT
-    '''
-    p[0] = ('comment', p[1][1:].rstrip())
 
 def p_script(p):
     ''' script : script statement
@@ -323,7 +352,6 @@ def p_block(p):
 
 def p_statement(p):
     ''' statement : command ';'
-                  | comment
                   | flow_control
     '''
     p[0] = p[1]
@@ -343,12 +371,12 @@ def p_statement_error(p):
 
 def p_command(p):
     ''' command : assertion
-                | BREAK
+                | break
                 | callcc
-                | CONTINUE
-                | DONE
+                | continue
+                | done
                 | expression
-                | HALT
+                | halt
                 | import
                 | tuple_assignment
                 | return
@@ -356,11 +384,14 @@ def p_command(p):
                 | yield
                 | empty
     '''
-    p[0] = p[1]
+    if p[1]:
+        p[0] = p[1]
+    else: # empty
+        p[0] = Nop()
 
 def p_assertion(p):
     ''' assertion : ASSERT expression
-                  | ASSERT expression ':' STRING
+                  | ASSERT expression ':' string
     '''
     if len(p) == 3:
         p[0] = Assert(
@@ -373,6 +404,11 @@ def p_assertion(p):
             message=p[4]
         )
 
+def p_break(p):    
+    ''' break : BREAK
+    '''
+    p[0] = Break()
+
 def p_callcc(p):    
     ''' callcc : CALLCC rvalue
     '''
@@ -380,8 +416,18 @@ def p_callcc(p):
         closure=p[2]
     )
 
+def p_continue(p):    
+    ''' continue : CONTINUE
+    '''
+    p[0] = Continue()
+
+def p_done(p):    
+    ''' done : DONE
+    '''
+    p[0] = Done()
+
 def p_function_call(p):
-    '''function_call : ID '(' args ')'
+    '''function_call : identifier '(' args ')'
                      | '%' '(' args ')'
                      | '@' '(' args ')'
     '''
@@ -390,24 +436,30 @@ def p_function_call(p):
         args=p[3],
     )
 
+def p_halt(p):    
+    ''' halt : HALT
+    '''
+    p[0] = Halt()
+
 def p_import(p):
     ''' import : IMPORT import_target import_suffix
     '''
     suffix = p[3]
     if suffix:
-        p[0] = ImportFrom(
+        p[0] = Import(
             target=p[2],
             path=suffix
         )
-    else:     
+    else:
         p[0] = Import(
-            target=p[2]
+            target=p[2],
+            path=None
         )
 
 def p_import_target(p):
-    ''' import_target : import_target '.' ID
+    ''' import_target : import_target '.' identifier
                       | import_target '.' '*'
-                      | ID
+                      | identifier
     '''
     if len(p) > 2:
         p[0] =  p[1] + p[2] + p[3]
@@ -416,23 +468,25 @@ def p_import_target(p):
 
 def p_import_suffix(p):
     ''' import_suffix : FROM ':' IMPORT_PATH
-                      | FROM ':' STRING
+                      | FROM ':' string
                       | empty
     '''
     if len(p) == 4:
         p[0] = p[3]
 
+# Terminate with 2 lvalues because (lvalue) would be an expression
 def p_lvalues(p):
     ''' lvalues : lvalues ',' lvalue
+                | lvalue ',' lvalue
                 | lvalues ','
-                | lvalue
     '''
-    if len(p) == 4: # lvalues ',' lvalue
-        p[0] = p[1] + [p[3]]
-    elif len(p) == 3: # lvalues ','
+    if len(p) == 4:
+        if type(p[1]) == list: # lvalues ',' lvalue
+            p[0] = p[1] + [p[3]]
+        else: # lvalue ',' lvalue
+            p[0] = [p[1], p[3]]
+    else: # lvalues ','
         p[0] = p[1]
-    else: # lvalue
-        p[0] = [p[1]]
 
 # lvalues should be seperated by a comma as 
 # The official sleep parser allows for space seperators but we'll flag it
@@ -448,10 +502,9 @@ def p_lvalues_error(p):
 def p_lvalue_tuple(p):
     ''' lvalue_tuple : '(' lvalues ')'
     '''
-    if type(p[2]) == list:
-        p[0] = tuple(p[2])
-    else:
-        p[0] = p[2]
+    p[0] = LvalueTuple(
+        values=tuple(p[2])
+    )
 
 def p_tuple_assignment(p):
     ''' tuple_assignment : lvalue_tuple assignment_operator expression
@@ -490,10 +543,9 @@ def p_flow_control(p):
     p[0] = p[1]
 
 def p_assignment_loop(p):
-    ''' assignment_loop : WHILE SCALAR '(' expression ')' block
+    ''' assignment_loop : WHILE scalar '(' expression ')' block
     '''
-    p[0] = Foreach(
-        index=None,
+    p[0] = AssignLoop(
         value=p[2],
         generator=p[4],
         body=p[6]
@@ -514,20 +566,17 @@ def p_conditional_else(p):
              | empty
     '''
     if len(p) == 3:
-        if isinstance(p[2], If):
-            p[0] = [p[2]]
-        else: # ELSE block
-            p[0] = p[2]
+        p[0] = p[2]
     else: # empty
-        p[0] = []
+        p[0] = None
 
 # Docs: 9.3 "Extend Sleep"
 # The "predicate" variant of a sleep bridge is currently not supported
 # because it'd cause an ambigious grammar with the function_call rule
 # Example: keyword (predicate) { commands; }
 def p_environment_bridge(p):
-    ''' environment_bridge : ID ID block
-                           | ID ID STRING block
+    ''' environment_bridge : identifier identifier block
+                           | identifier identifier string block
     '''
     if len(p) == 4:
         p[0] = EnvBridge(
@@ -536,7 +585,7 @@ def p_environment_bridge(p):
             string=None,
             body=p[3]
         )
-    else: # ID ID STRING block
+    else: # identifier identifier string block
         p[0] = EnvBridge(
             keyword=p[1],
             identifier=p[2],
@@ -574,8 +623,8 @@ def p_for_loop_increment(p):
     p[0] = p[1]
 
 def p_foreach(p):
-    ''' foreach : FOREACH SCALAR ARROW SCALAR '(' foreach_generator ')' block
-                | FOREACH SCALAR '(' foreach_generator ')' block
+    ''' foreach : FOREACH scalar ARROW scalar '(' foreach_generator ')' block
+                | FOREACH scalar '(' foreach_generator ')' block
     '''
     if len(p) == 9:
         p[0] = Foreach(
@@ -598,14 +647,12 @@ def p_foreach_generator(p):
     p[0] = p[1]
 
 def p_trycatch(p):
-    ''' trycatch : TRY block CATCH SCALAR block
+    ''' trycatch : TRY block CATCH scalar block
     '''
-    p[0] = Try(
+    p[0] = TryCatch(
         body=p[2],
-        handler=Catch(
-            value=p[4],
-            body=p[5]
-        )
+        value=p[4],
+        handler=p[5]
     )
 
 def p_while_loop(p):
@@ -646,6 +693,11 @@ class SleepParser(object):
         self.debug = kwargs.get('debug', False)
         self.lexer = kwargs.get('lexer', SleepLexer())
         parser = yacc.yacc(start="script", debug=self.debug)
+
+    # Tracks comments and linebreaks which must be stripped by the lexer
+    # Otherwise, a formal grammar cannot be fully defined for the parser
+    def __preprocess(self, code: str):
+        pass
 
     def parse(self, code, tracking=False):
         global parser
