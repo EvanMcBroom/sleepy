@@ -140,7 +140,7 @@ def t_IMPORT_PATH(t):
 
 # Matches IDs and keywords
 def t_ID(t):
-    r'[a-zA-Z_][a-zA-Z_0-9]*'
+    r'[a-zA-Z_][a-zA-Z_0-9\-]*'
     t.type = keywords.get(t.value,'ID')
     return t
 
