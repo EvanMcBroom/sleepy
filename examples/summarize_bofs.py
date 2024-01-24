@@ -23,7 +23,7 @@ if len(sys.argv) > 1:
                 # Enumerate all statements in the alias's body
                 # Check for if any use bof_pack or beacon_inline_execute
                 # We're making the assumption these will only happen at most once
-                for statement in aliasBridge.body:
+                for statement in aliasBridge.body.body:
                     # We're making the assumption this will only happen once
                     if isinstance(statement, BinOp) and statement.op == '=':
                         rhs = statement.right
