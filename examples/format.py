@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# Formats a sleep script.
 
 import sys
 from sleepy.ast import format

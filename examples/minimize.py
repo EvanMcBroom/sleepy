@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# Converts a sleep script to its minimized form.
 
 import sys
 import sleepy.ast

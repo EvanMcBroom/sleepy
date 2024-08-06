@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# Generate a report of profanity in a text file.
 
 import pathlib
 import sys

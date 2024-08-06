@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# Adds a chosen prefix to all functions defined in a sleep script.
 
 import json
 import sys

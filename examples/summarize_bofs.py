@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+# Generate JSON data that summarizes beacon object
+# files commands that are defined a sleep script.
 
 import json
 import sys

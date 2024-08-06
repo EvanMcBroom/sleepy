@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# Converts a sleep script to its corresponding list of tokens.
 
 import sys
 from sleepy.parser import *

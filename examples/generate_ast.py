@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# Converts a sleep script to its corresponding abstract syntax tree.
 
 import sys
 import pprint
