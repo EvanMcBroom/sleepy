@@ -373,3 +373,58 @@ class UnaryOp(expression):
     
 def format(node: AST):
     return str(node)
+
+def walk(node, visitor=None):
+    if type(node) == Arg:
+        node.name = walk(node.name, visitor)
+        node.value = walk(node.value, visitor)
+    elif type(node) == Assert:
+        node.test = walk(node.test, visitor)
+    elif type(node) == AssignLoop:
+        node.value = walk(node.value, visitor)
+        node.body = walk(node.body, visitor)
+    elif type(node) == BinOp:
+        node.left = walk(node.left, visitor)
+        node.right = walk(node.right, visitor)
+    elif type(node) == Block:
+        node.body = list(walk(_, visitor) for _ in node.body)
+    elif type(node) == Call:
+        node.args = list(walk(_, visitor) for _ in node.args)
+    elif type(node) == EnvBridge:
+        node.body = walk(node.body, visitor)
+    elif type(node) == For:
+        node.initializer = list(walk(_, visitor) for _ in node.initializer)
+        node.increment = list(walk(_, visitor) for _ in node.increment)
+    elif type(node) == Foreach:
+        node.generator = walk(node.generator, visitor)
+        node.body = walk(node.body, visitor)
+    elif type(node) == If:
+        node.test = walk(node.test, visitor)
+        node.body = walk(node.body, visitor)
+        node.orelse = walk(node.orelse, visitor)
+    elif type(node) == Index:
+        node.container = walk(node.container, visitor)
+    elif type(node) == KvPair:
+        node.name = walk(node.name, visitor)
+        node.value = walk(node.value, visitor)
+    elif type(node) == LvalueTuple:
+        node.values = tuple(walk(_, visitor) for _ in node.values)
+        node.element = walk(node.element, visitor)
+    elif type(node) == Return:
+        node.value = walk(node.value, visitor)
+    elif type(node) == Script:
+        node.body = list(walk(_, visitor) for _ in node.body)
+    elif type(node) == Throw:
+        node.value = walk(node.value, visitor)
+    elif type(node) == TryCatch:
+        node.body = walk(node.body, visitor)
+        node.value = walk(node.value, visitor)
+        node.handler = walk(node.handler, visitor)
+    elif type(node) == While:
+        node.test = walk(node.test, visitor)
+        node.body = walk(node.body, visitor)
+    elif type(node) == Yield:
+        node.value = walk(node.value, visitor)
+    elif type(node) == UnaryOp:
+        node.operand = walk(node.operand, visitor)
+    return visitor(node) if visitor else node
