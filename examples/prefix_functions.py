@@ -7,8 +7,10 @@ import sleepy.ast
 from sleepy.parser import *
 
 internalFunctions = list()
+prefix = ''
 
 def visitor(node):
+    # Prefix the use of a function if its an internal function
     if isinstance(node, Call) and node.function in internalFunctions:
         node.function = prefix + node.function
     return node
@@ -27,7 +29,7 @@ if len(sys.argv) > 2:
                 internalFunctions.append(statement.identifier)
                 statement.identifier = prefix + statement.identifier
                 script.body[index] = statement
-        # Then update each instance where an internal function
+        # Then update each instance where an internal function is used
         newScript = walk(script, visitor)
         print(sleepy.ast.format(newScript))
 else:
