@@ -190,7 +190,7 @@ def t_NUMBER(t):
     return t
 
 def t_STRING(t):
-    r'"([^\\"]|(\\.))*([^\\"]|(\\[^\\]))?"'
+    r'"([^\\"]|(?s:\\.))*([^\\"]|(\\[^\\]))?"'
     t.value = t.value[1:-1]
     t.lexer.lineno += t.value.count('\n')
     return t
