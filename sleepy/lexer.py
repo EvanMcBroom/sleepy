@@ -140,7 +140,7 @@ def t_IMPORT_PATH(t):
 
 # Matches IDs and keywords
 def t_ID(t):
-    r'[a-zA-Z_][a-zA-Z_0-9\-]*'
+    r'[a-zA-Z_][a-zA-Z_0-9\-+]*'
     t.type = keywords.get(t.value,'ID')
     return t
 
@@ -205,7 +205,7 @@ def t_OBJECT_EXPR(t):
 t_ignore  = ' \t'
 
 def t_ignore_COMMENT(t):
-    r'\#.*\n'
+    r'\#.*(?:\n|\Z)'
     t.lexer.lineno += 1
 
 def t_newline(t):

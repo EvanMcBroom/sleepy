@@ -574,23 +574,36 @@ def p_conditional_else(p):
 # The "predicate" variant of a sleep bridge is currently not supported
 # because it'd cause an ambigious grammar with the function_call rule
 # Example: keyword (predicate) { commands; }
+#
+# The sleep interpreter in Cobalt Strike additionally supports the
+# following undocumented bridge syntax which we support as well for
+# compatibility:
+# identifier string block
 def p_environment_bridge(p):
     ''' environment_bridge : identifier identifier block
                            | identifier identifier string block
+                           | identifier string block
     '''
-    if len(p) == 4:
-        p[0] = EnvBridge(
-            keyword=p[1],
-            identifier=p[2],
-            string=None,
-            body=p[3]
-        )
-    else: # identifier identifier string block
+    if len(p) == 5: # identifier identifier block
         p[0] = EnvBridge(
             keyword=p[1],
             identifier=p[2],
             string=p[3],
             body=p[4]
+        )
+    elif isinstance(p[2], string): # identifier string block
+        p[0] = EnvBridge(
+            keyword=p[1],
+            identifier=None,
+            string=p[2],
+            body=p[3]
+        )
+    else: # identifier identifier block
+        p[0] = EnvBridge(
+            keyword=p[1],
+            identifier=p[2],
+            string=None,
+            body=p[3]
         )
 
 def p_for_loop(p):
