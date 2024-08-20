@@ -196,8 +196,13 @@ def t_STRING(t):
     return t
 
 # Define after LITERAL and STRING to not catch embedded values
+# The pattern for matching balanced brackets is a modified
+# version of this solution for balanced parentheses. A negative
+# look behind is placed at the beginning to not match when
+# brackets are used for indexing.
+# https://stackoverflow.com/a/35271017/11039217
 def t_OBJECT_EXPR(t):
-    r'(?<![a-zA-Z_0-9`)\]])\[(?:[^[\]]+|\[[^\]]+?\]|\n)+\]'
+    r'(?<![[a-zA-Z_0-9\-+`)\]])(?P<OBJECT_EXPRESSION_RECURSION>\[(?:[^\[\]]+|(?&OBJECT_EXPRESSION_RECURSION))*+\])'
     t.value = t.value[1:-1]
     return t
 

@@ -637,7 +637,7 @@ def p_for_loop_increment(p):
 
 def p_foreach(p):
     ''' foreach : FOREACH scalar ARROW scalar '(' foreach_generator ')' block
-                | FOREACH scalar '(' foreach_generator ')' block
+                | FOREACH lvalue '(' foreach_generator ')' block
     '''
     if len(p) == 9:
         p[0] = Foreach(

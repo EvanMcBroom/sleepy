@@ -2,7 +2,7 @@
 # Converts a sleep script to its corresponding list of tokens.
 
 import sys
-from sleepy.parser import *
+from sleepy.lexer import *
 
 if len(sys.argv) > 1:
     path = sys.argv[1]
