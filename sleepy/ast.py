@@ -411,7 +411,6 @@ def walk(node, visitor=None):
         node.value = walk(node.value, visitor)
     elif type(node) == LvalueTuple:
         node.values = tuple(walk(_, visitor) for _ in node.values)
-        node.element = walk(node.element, visitor)
     elif type(node) == Return:
         node.value = walk(node.value, visitor)
     elif type(node) == Script:
