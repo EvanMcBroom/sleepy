@@ -1,12 +1,45 @@
 # -*- coding: utf-8 -*-
-# Generate JSON data that summarizes beacon object
-# files commands that are defined a sleep script.
+# Generate JSON data that summarizes beacon object file
+# (BOF) commands that are defined by a sleep script.
 
 import json
-import sys
 from sleepy.parser import *
+import sys
 
-bofs = {}
+def concatenate_strings(node):
+    if isinstance(node, string):
+        return node
+    elif isinstance(node, BinOp) and node.op == '.':
+        return concatenate_strings(node.left) + node.right
+    else:
+        raise "Only expected a string or string concatenation but received: {}".format(node)
+
+bofs = dict()
+def find_beacon_command_register(node):
+    if isinstance(node, Call) and node.function == 'beacon_command_register':
+        # We're assuming that the bof name matches the command name in the help information
+        args = node.args
+        if args[0].value in bofs:
+            # We're assuming the simple format of beacon_command_register("", "", "") is used,
+            # or that arguments are strings concatenated together (e.g., "" . "")
+            bofs[args[0].value]['help_short'] = concatenate_strings(args[1].value)
+            bofs[args[0].value]['help_long'] = concatenate_strings(args[2].value)
+    return node
+
+beaconInlineExecuteInstances = list()
+def find_beacon_inline_execute(node):
+    global beaconInlineExecutePresent
+    if isinstance(node, Call) and node.function == 'beacon_inline_execute':
+        beaconInlineExecuteInstances.append(node)
+    return node
+
+bofArgFormats = list()
+def find_bof_pack(node):
+    if isinstance(node, Call) and node.function == 'bof_pack':
+        # We're assuming the simple format of bof_pack(, "", ...) is used
+        bofArgFormats.append(node.args[1].value)
+    return node
+
 if len(sys.argv) > 1:
     path = sys.argv[1]
     with open(path, 'r') as file:
@@ -19,35 +52,23 @@ if len(sys.argv) > 1:
             # First enumerate all beacon commands
             if isinstance(statement, EnvBridge) and statement.keyword == 'alias':
                 aliasBridge = statement
-                bofFile = None
-                argFormat = ''
-                command = aliasBridge.identifier
-                # Enumerate all statements in the alias's body
-                # Check for if any use bof_pack or beacon_inline_execute
-                # We're making the assumption these will only happen at most once
-                for statement in aliasBridge.body.body:
-                    # We're making the assumption this will only happen once
-                    if isinstance(statement, BinOp) and statement.op == '=':
-                        rhs = statement.right
-                        if isinstance(rhs, Call) and rhs.function == 'bof_pack':
-                            argFormat = rhs.args[1].value
-                    # Check if one of the statements is used to run beacon_inline_execute
-                    if isinstance(statement, Call) and statement.function == 'beacon_inline_execute':
-                        bofArg = statement.args[1].value
-                        if isinstance(bofArg, Call) and bofArg.function == 'readbof':
-                            bofFile = bofArg.args[1].value
-                if bofFile:
-                    bofs[bofFile] = {
-                        'arg_format': argFormat
+                commandName = aliasBridge.identifier
+                # Enumerate all statements in the alias's body looking
+                # for all uses of beacon_inline_execute
+                beaconInlineExecuteInstances = list()
+                walk(aliasBridge, find_beacon_inline_execute)
+                # If the alias is used to execute a BOF then process it further
+                if len(beaconInlineExecuteInstances) > 0:
+                    # Enumerate all statements in the alias's body looking
+                    # for all uses of bof_pack
+                    bofArgFormats = list()
+                    walk(aliasBridge, find_bof_pack)
+                    # Use set to reduce the list to unique values
+                    bofs[commandName] = {
+                        'arg_formats': list(set(bofArgFormats))
                     }
-        # Enumerate all of the registered help information for a bof
-        # We're assuming that the bof name matches the command name for the help information
-        for statement in script.body:
-            if isinstance(statement, Call) and statement.function == 'beacon_command_register':
-                args = statement.args
-                if args[0].value in bofs:
-                    bofs[args[0].value]['help_short'] = args[1].value
-                    bofs[args[0].value]['help_long'] = args[2].value
+        # Enumerate all of the registered help information for all bofs
+        walk(script, find_beacon_command_register)
     print(json.dumps(bofs, indent=4))
 else:
     print('{} <path>'.format(sys.argv[0]))
