@@ -107,6 +107,35 @@ class Script(AST):
         body = [str(_) + (';' if isinstance(_, command) else '') for _ in self.body if _]
         return eol.join(body)
     
+    __calls = list()
+    def __find_calls(self, node):
+        if isinstance(node, Call):
+            self.__calls.append(node.function)
+        return node
+
+    def functions(self):
+        if not hasattr(Script.functions, "data"):
+            Script.functions.data = list()
+            for statement in self.body:
+                if isinstance(statement, EnvBridge) and statement.keyword in ['alias', 'sub']:
+                    Script.functions.data.append(statement.identifier)
+            Script.functions.data.sort()
+        return Script.functions.data
+
+    def xrefs(self):
+        if not hasattr(Script.xrefs, "data"):
+            Script.xrefs.data = [(None, list())] + [(_, list()) for _ in self.functions()]
+            for statement in self.body:
+                self.__calls = list()
+                walk(statement, self.__find_calls)
+                self.__calls = list(set(self.__calls))
+                index = 0
+                if isinstance(statement, EnvBridge) and statement.keyword in ['alias', 'sub']:
+                    index = next(index for index, value in enumerate(Script.xrefs.data) if value[0] == statement.identifier)
+                value = Script.xrefs.data[index]
+                Script.xrefs.data[index] = (value[0], list(set(value[1] + self.__calls)))
+        return Script.xrefs.data
+    
 # Commands
 
 @dataclass
