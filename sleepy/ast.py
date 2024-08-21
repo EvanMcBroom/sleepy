@@ -133,7 +133,7 @@ class Script(AST):
                 if isinstance(statement, EnvBridge) and statement.keyword in ['alias', 'sub']:
                     index = next(index for index, value in enumerate(Script.xrefs.data) if value[0] == statement.identifier)
                 value = Script.xrefs.data[index]
-                Script.xrefs.data[index] = (value[0], list(set(value[1] + self.__calls)))
+                Script.xrefs.data[index] = (value[0], sorted(list(set(value[1] + self.__calls))))
         return Script.xrefs.data
     
 # Commands
