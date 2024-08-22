@@ -432,8 +432,6 @@ class BinOp(expression):
     negate: bool = False
 
     def __str__(self):
-        if self.op == '.':
-            return self.parenthesize('{}{}{}'.format(self.left, self.op, self.right))
         return self.parenthesize('{} {}{} {}'.format(self.left, '!' if self.negate else '', self.op, self.right))
     
 @dataclass
