@@ -55,6 +55,7 @@ if len(sys.argv) > 1:
         bofs = {name: metadata for name, metadata in beaconCommands.items() if len(script.paths(name, 'beacon_inline_execute')) > 0}
         # Enumerate all code paths from the bof alias to bof_pack
         for bofName in bofs.keys():
+            bofArgFormats = set()
             for path in script.paths(bofName, 'bof_pack'):
                 # If a code path is found, enumerate all statements in the
                 # function that uses bof_pack to identify all format strings
