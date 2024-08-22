@@ -113,6 +113,17 @@ class Script(AST):
             self.__calls.append(node.function)
         return node
 
+
+    def __is_cyclic(self, xrefs, function, visited=set()):
+        if function in visited:
+            return True
+        if function not in xrefs:
+            return False
+        for neighbour in xrefs[function]:
+            if self.__is_cyclic(xrefs, neighbour, visited | {function}):
+                return True
+        return False
+
     def functions(self, useCache=True):
         if not useCache or not hasattr(Script.functions, "data"):
             Script.functions.data = list()
@@ -123,12 +134,15 @@ class Script(AST):
         return Script.functions.data
 
     # A simple path tracing BFS algorithm slightly modified
-    # from qiao's solution. The algorithm assumes that there
+    # from qiao's solution. The algorithm requires that there
     # are no cycles in the call tree for the script (e.g.,
-    # the script does not implement recursion).
+    # the script does not have any recursive functions).
     # https://stackoverflow.com/a/8922151/11039217
-    def paths(self, start, end, useCache=True):
+    def paths(self, start, end, onlyFirst=False, useCache=True):
         xrefs = self.xrefs(useCache)
+        if any([self.__is_cyclic(self.xrefs(useCache), _) for _ in self.functions(useCache)]):
+            raise RecursionError("Path tracing is not supported for scripts with recursive functions.")
+        paths = []
         queue = []
         queue.append([start])
         while queue:
@@ -138,14 +152,17 @@ class Script(AST):
             node = path[-1]
             # path found
             if node == end:
-                return path
+                if onlyFirst:
+                    return path
+                else:
+                    paths.append(path)
             # enumerate all adjacent nodes, construct a 
             # new path and push it into the queue
             for adjacent in xrefs.get(node, []):
                 new_path = list(path)
                 new_path.append(adjacent)
                 queue.append(new_path)
-        return queue 
+        return paths 
     
     def xrefs(self, useCache=True):
         if not useCache or not hasattr(Script.xrefs, "data"):
