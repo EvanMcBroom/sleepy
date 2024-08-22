@@ -123,20 +123,26 @@ class Script(AST):
             if self.__is_cyclic(xrefs, neighbour, visited | {function}):
                 return True
         return False
-
+    
+    # Returns an AST for a specified function.
+    def function(self, name, useCache=True):
+        self.functions(useCache)
+        matches = [_ for _ in Script.functions.data if _.identifier == name]
+        return matches[0] if len(matches) > 0 else None
+    
+    # Returns the list of aliases and subroutines (e.g., functions) in a script.
     def functions(self, useCache=True):
         if not useCache or not hasattr(Script.functions, "data"):
             Script.functions.data = list()
             for statement in self.body:
                 if isinstance(statement, EnvBridge) and statement.keyword in ['alias', 'sub']:
-                    Script.functions.data.append(statement.identifier)
-            Script.functions.data.sort()
-        return Script.functions.data
+                    Script.functions.data.append(statement)
+            Script.functions.data.sort(key=lambda statement: statement.identifier)
+        return [_.identifier for _ in Script.functions.data]
 
-    # A simple path tracing BFS algorithm slightly modified
-    # from qiao's solution. The algorithm requires that there
-    # are no cycles in the call tree for the script (e.g.,
-    # the script does not have any recursive functions).
+    # A simple path tracing BFS algorithm slightly modified from qiao's solution.
+    # The algorithm requires that there are no cycles in the call tree for the
+    # script (e.g., the script does not have any recursive functions).
     # https://stackoverflow.com/a/8922151/11039217
     def paths(self, start, end, onlyFirst=False, useCache=True):
         xrefs = self.xrefs(useCache)
@@ -164,6 +170,7 @@ class Script(AST):
                 queue.append(new_path)
         return paths 
     
+    # Returns the cross-references for the main script and all functions it defines.
     def xrefs(self, useCache=True):
         if not useCache or not hasattr(Script.xrefs, "data"):
             Script.xrefs.data = {_: list() for _ in self.functions()}
