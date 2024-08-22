@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Generate JSON data that summarizes beacon object file
-# (BOF) beaconCommands that are defined by a sleep script.
+# (BOF) commands that are defined by a sleep script.
 
 import json
 from sleepy.parser import *
