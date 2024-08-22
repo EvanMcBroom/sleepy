@@ -14,7 +14,7 @@ if len(sys.argv) > 1:
         xrefs = script.xrefs()
         if len(xrefs) > 0:
             print('\nCross references:')
-            for function in xrefs:
-                print('  ' + (function[0] if function[0] else 'Main Script') + ' -> ' + ', '.join(function[1]) if len(function[1]) > 0 else 'None')
+            for function, calls in sorted(xrefs.items()):
+                print('  ' + (function if function else 'Main Script') + ' -> ' + ', '.join(calls) if len(calls) > 0 else 'None')
 else:
     print('{} <path>'.format(sys.argv[0]))

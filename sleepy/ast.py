@@ -113,8 +113,8 @@ class Script(AST):
             self.__calls.append(node.function)
         return node
 
-    def functions(self):
-        if not hasattr(Script.functions, "data"):
+    def functions(self, useCache=True):
+        if not useCache or not hasattr(Script.functions, "data"):
             Script.functions.data = list()
             for statement in self.body:
                 if isinstance(statement, EnvBridge) and statement.keyword in ['alias', 'sub']:
@@ -122,18 +122,46 @@ class Script(AST):
             Script.functions.data.sort()
         return Script.functions.data
 
-    def xrefs(self):
-        if not hasattr(Script.xrefs, "data"):
-            Script.xrefs.data = [(None, list())] + [(_, list()) for _ in self.functions()]
+    # A simple path tracing BFS algorithm slightly modified
+    # from qiao's solution. The algorithm assumes that there
+    # are no cycles in the call tree for the script (e.g.,
+    # the script does not implement recursion).
+    # https://stackoverflow.com/a/8922151/11039217
+    def paths(self, start, end, useCache=True):
+        xrefs = self.xrefs(useCache)
+        queue = []
+        queue.append([start])
+        while queue:
+            # get the first path from the queue
+            path = queue.pop(0)
+            # get the last node from the path
+            node = path[-1]
+            # path found
+            if node == end:
+                return path
+            # enumerate all adjacent nodes, construct a 
+            # new path and push it into the queue
+            for adjacent in xrefs.get(node, []):
+                new_path = list(path)
+                new_path.append(adjacent)
+                queue.append(new_path)
+        return queue 
+    
+    def xrefs(self, useCache=True):
+        if not useCache or not hasattr(Script.xrefs, "data"):
+            Script.xrefs.data = {_: list() for _ in self.functions()}
+            # An empty string is used to reference the main script
+            # This is used rather than None to allow the dict to be
+            # easily sorted.
+            Script.xrefs.data[''] = list()
             for statement in self.body:
                 self.__calls = list()
                 walk(statement, self.__find_calls)
                 self.__calls = list(set(self.__calls))
-                index = 0
-                if isinstance(statement, EnvBridge) and statement.keyword in ['alias', 'sub']:
-                    index = next(index for index, value in enumerate(Script.xrefs.data) if value[0] == statement.identifier)
-                value = Script.xrefs.data[index]
-                Script.xrefs.data[index] = (value[0], sorted(list(set(value[1] + self.__calls))))
+                key = ''
+                if isinstance(statement, EnvBridge) and statement.keyword in ['alias', 'sub'] and statement.identifier in Script.xrefs.data:
+                    key = statement.identifier
+                Script.xrefs.data[key] = sorted(list(set(Script.xrefs.data[key] + self.__calls)))
         return Script.xrefs.data
     
 # Commands
