@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # Replace all calls to a function with a different function name.
-# One use case is to replace all calls to openf, readb, and
-# closef to custom functions that access files from a different
-# location such as a file share or artifact store. 
+# One use case is to replace all calls to openf and script_resource
+# to custom functions that access files from a different location
+# such as a file share or artifact store. 
 
 import sys
 import sleepy.ast
