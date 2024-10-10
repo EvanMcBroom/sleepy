@@ -14,7 +14,7 @@ class JsonEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, node)
     
 def concatenate_strings(node):
-    if isinstance(node, string):
+    if isinstance(node, literal) or isinstance(node, string):
         return node
     elif isinstance(node, BinOp) and node.op == '.':
         return concatenate_strings(node.left) + node.right

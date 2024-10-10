@@ -714,4 +714,18 @@ class SleepParser(object):
 
     def parse(self, code, tracking=False):
         global parser
-        return parser.parse(code, tracking=tracking)
+        script = parser.parse(code, tracking=tracking)
+        # Some sleep scripts are published with syntax errors because
+        # the sleep interpreter that ships with Cobalt Strike does not
+        # fully conform to the specification for the language. Namely,
+        # Cobalt Strike allows for missing commas and semicolons in
+        # several locations in a script where they should be manditory.
+        #
+        # The sleepy project is able to identify these errors and
+        # correct them as it continues to parse a file. The only instance
+        # where this will fail is if the syntax error is at the end of
+        # a script which would occur due to a missing semicolon. In that
+        # situation, the parser would fail and return None. This check
+        # is to identify that failure case, manually modify the original
+        # script to fix the issue, then reattempt parsing the file.
+        return script if script else parser.parse(code + ';\n', tracking=tracking)
