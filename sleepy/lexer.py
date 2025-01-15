@@ -77,7 +77,8 @@ tokens = tuple(keywords.values()) + assignment_operators + (
     'SPACESHIP',
     'STRING',
     'TRUE',
-    'UNARY_PREDICATE_BRIDGE'
+    'UNARY_PREDICATE_BRIDGE',
+    'BUILTIN_BINARY_PREDICATE_BRIDGE'
 )
 
 # These will be checked last
@@ -129,7 +130,15 @@ t_LOR  = r'\|\|'
 t_EXP = r'\*\*='
 
 # Match predicates before IDs
-t_UNARY_PREDICATE_BRIDGE = r'-[a-zA-Z]\w*'
+# These must be defined as functions for them to be matched first
+
+def t_UNARY_PREDICATE_BRIDGE(t):
+    r'-[a-zA-Z]\w*'
+    return t
+
+def t_BUILTIN_BINARY_PREDICATE_BRIDGE(t):
+    r'(?:cmp|eq|gt|hasmatch|is|isa|isin|ismatch|iswm|in|lt|ne)(?=\b)'
+    return t
 
 # Match import path before id
 def t_IMPORT_PATH(t):

@@ -11,12 +11,17 @@ parser = None
 quiet = False
 
 # Tokens are ordered from lowest to highest precedence
-# Using the C++ and Python precedence rules
+# using the C++ and Python precedence. The precedence
+# rules that the official Sleep distribution implements
+# would have been used, but they were never defined in the
+# Sleep manual so these rules are used in lue of that.
+# The BINARY_PREDICATE_BRIDGE and UNARY_PREDICATE_BRIDGE
+# operators are unique to the Sleep language and a best
+# guess was made for an appropriate precedence for them.
 # https://en.cppreference.com/w/cpp/language/operator_precedence
 # https://docs.python.org/3/reference/expressions.html#operator-precedence
+#
 precedence = (
-    ('left', 'BINARY_PREDICATE_BRIDGE'),
-    ('right', 'UNARY_PREDICATE_BRIDGE'),
     ('right', '=', 'ANDEQUAL', 'CATEQUAL', 'DIVEQUAL', 'EXPEQUAL', 'LSHIFTEQUAL', 'MINUSEQUAL', 'OREQUAL', 'PLUSEQUAL', 'RSHIFTEQUAL', 'TIMESEQUAL', 'XOREQUAL'),
     ('left', 'LOR'),
     ('left', 'LAND'),
@@ -28,7 +33,17 @@ precedence = (
     ('left', 'LSHIFT', 'RSHIFT'),
     ('left', '+', '-', '.'),
     ('left', '*', '/', '%', 'x'),
-    ('right', 'UNARY_PLUS', 'UNARY_MINUS', 'LNOT', '!'),
+    # Ideally, these would be at the same precedence. Due to how yacc works though,
+    # only operators that we explicitly defined will have their precedence applied
+    # how we defined them. Operators we did not explicitly define (non-builtin
+    # BINARY_PREDICATE_BRIDGEs) will have their precedence set to be after the
+    # precedence of the last explicitly defined operator. That should only affect
+    # scripts where custom operators are defined which in practice should be rare.
+    # References:
+    # https://github.com/dabeaz/ply/issues/163
+    # https://www.gnu.org/software/bison/manual/html_node/How-Precedence.html#How-Precedence
+    ('left', 'BUILTIN_BINARY_PREDICATE_BRIDGE', 'BINARY_PREDICATE_BRIDGE'),
+    ('right', 'UNARY_PREDICATE_BRIDGE', 'UNARY_PLUS', 'UNARY_MINUS', 'LNOT', '!'),
     ('left', 'INC', 'DEC'),
     ('left', 'EXP'),
 )
@@ -209,6 +224,8 @@ def p_expression_binary(p):
                    | expression SPACESHIP expression
                    | expression TIMESEQUAL expression
                    | expression XOREQUAL expression
+                   | expression '!' BUILTIN_BINARY_PREDICATE_BRIDGE expression
+                   | expression BUILTIN_BINARY_PREDICATE_BRIDGE expression
                    | expression identifier expression %prec BINARY_PREDICATE_BRIDGE
                    | expression '!' identifier expression %prec BINARY_PREDICATE_BRIDGE
     '''
