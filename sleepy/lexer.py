@@ -82,7 +82,7 @@ tokens = tuple(keywords.values()) + assignment_operators + (
 )
 
 # These will be checked last
-literals = "!.&@,/=%\\-+x*^|:;{\}[]()<>"
+literals = "!.&@,/=%\\-+x*^|:;}{[]()<>"
 
 # Constants
 
