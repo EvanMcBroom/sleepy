@@ -127,7 +127,7 @@ t_LAND = r'&&'
 t_LOR  = r'\|\|'
 
 # Arithmetic operators
-t_EXP = r'\*\*='
+t_EXP = r'\*\*'
 
 # Match predicates before IDs
 # These must be defined as functions for them to be matched first

@@ -49,8 +49,10 @@ precedence = (
     ('left', 'BUILTIN_BINARY_PREDICATE_BRIDGE', 'BINARY_PREDICATE_BRIDGE'),
     ('right', 'UNARY_PREDICATE_BRIDGE', 'UNARY_PLUS', 'UNARY_MINUS', 'LNOT', '!'),
     ('left', 'INC', 'DEC'),
-    ('left', 'EXP'),
-    ('left', '[', ']')
+    # Neither C or Python has an exponentiation operator so our choice for the
+    # precedence of '**' in sleep is currently based standard math precedence rules.
+    ('right', 'EXP'),
+    ('left', '[', ']', '(', ')')
 )
 
 def p_empty(p):
