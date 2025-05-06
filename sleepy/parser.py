@@ -31,7 +31,11 @@ precedence = (
     ('left', 'EQ', 'NE', 'EQI', 'NEQI', 'SPACESHIP'),
     ('left', '<', '>', 'LE', 'GE'),
     ('left', 'LSHIFT', 'RSHIFT'),
-    ('left', '+', '-', '.'),
+    # Neither C or Python has a string concatenation operator so our choice for the
+    # precedence of '.' in sleep is currently based on Lua's precedence:
+    # https://www.lua.org/pil/3.5.html
+    ('left', '.'),
+    ('left', '+', '-'),
     ('left', '*', '/', '%', 'x'),
     # Ideally, these would be at the same precedence. Due to how yacc works though,
     # only operators that we explicitly defined will have their precedence applied
