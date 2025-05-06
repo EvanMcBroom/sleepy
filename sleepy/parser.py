@@ -46,6 +46,7 @@ precedence = (
     ('right', 'UNARY_PREDICATE_BRIDGE', 'UNARY_PLUS', 'UNARY_MINUS', 'LNOT', '!'),
     ('left', 'INC', 'DEC'),
     ('left', 'EXP'),
+    ('left', '[', ']')
 )
 
 def p_empty(p):
