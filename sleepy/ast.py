@@ -481,6 +481,8 @@ def walk(node, visitor=None):
         node.body = list(walk(_, visitor) for _ in node.body)
     elif type(node) == Call:
         node.args = list(walk(_, visitor) for _ in node.args)
+    elif type(node) == Callcc:
+        node.closure = walk(node.closure, visitor)
     elif type(node) == EnvBridge:
         node.body = walk(node.body, visitor)
     elif type(node) == For:
@@ -500,6 +502,10 @@ def walk(node, visitor=None):
         node.value = walk(node.value, visitor)
     elif type(node) == LvalueTuple:
         node.values = tuple(walk(_, visitor) for _ in node.values)
+    elif type(node) == ObjExpr:
+        node.message = walk(node.message, visitor)
+        node.target = walk(node.target, visitor)
+        node.args = list(walk(_, visitor) for _ in node.args)
     elif type(node) == Return:
         node.value = walk(node.value, visitor)
     elif type(node) == Script:
