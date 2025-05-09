@@ -48,6 +48,7 @@ tokens = tuple(keywords.values()) + assignment_operators + (
     'ARG_PASSED_BY_NAME',
     'ARROW',
     'BACKTICK_EXPR',
+    'CLASS_LITERAL',
     'DEC',
     'DOUBLE',
     'EOF',
@@ -60,7 +61,6 @@ tokens = tuple(keywords.values()) + assignment_operators + (
     'ID',
     'IMPORT_PATH',
     'INC',
-    'JAVA_CLASS',
     'LAND', # Logical and
     'LE',
     'LITERAL',
@@ -71,7 +71,6 @@ tokens = tuple(keywords.values()) + assignment_operators + (
     'NEQI', # Not equal identity
     'NULL',
     'NUMBER',
-    'OBJECT_EXPR',
     'RSHIFT',
     'SCALAR',
     'SPACESHIP',
@@ -156,7 +155,7 @@ def t_ID(t):
 t_ADDRESS            = r'\&[a-zA-Z_][a-zA-Z_0-9]*'
 t_ARG_PASSED_BY_NAME = r'\\(\@|\%|\$)[a-zA-Z_][a-zA-Z_0-9]*'
 t_ARROW              = r'=>'
-t_JAVA_CLASS         = r'\^([a-zA-Z_$][a-zA-Z\d_$]*\.)*[a-zA-Z_$][a-zA-Z\d_$]*'
+t_CLASS_LITERAL      = r'\^([a-zA-Z_$][a-zA-Z\d_$]*\.)*[a-zA-Z_$][a-zA-Z\d_$]*'
 t_SCALAR             = r'(\$\w+|\$\+)'
 
 # Comparisons
@@ -202,17 +201,6 @@ def t_STRING(t):
     r'"([^\\"]|(?s:\\.))*([^\\"]|(\\[^\\]))?"'
     t.value = t.value[1:-1]
     t.lexer.lineno += t.value.count('\n')
-    return t
-
-# Define after LITERAL and STRING to not catch embedded values
-# The pattern for matching balanced brackets is a modified
-# version of this solution for balanced parentheses. A negative
-# look behind is placed at the beginning to not match when
-# brackets are used for indexing.
-# https://stackoverflow.com/a/35271017/11039217
-def t_OBJECT_EXPR(t):
-    r'(?<![[a-zA-Z_0-9\-+`)\]])(?P<OBJECT_EXPRESSION_RECURSION>\[(?:[^\[\]]+|(?&OBJECT_EXPRESSION_RECURSION))*+\])'
-    t.value = t.value[1:-1]
     return t
 
 # Ignored characters

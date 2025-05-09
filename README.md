@@ -8,10 +8,6 @@ The only deviation from the language specification are "operator bridges" which 
 This change was made to allow Sleepy to define operator precedence rules.
 This change should not cause any issues.
 
-Sleepy will not tokenize Java object expressions (a.k.a, "Haphazard Object Extensions for Sleep") into their individual components because doing so would create ambiguous grammar rules.
-A seperate lexer may be added in the future to handle these expressions.
-All other Sleep statements are fully tokenized.
-
 One issue that was encountered when developing Sleepy is that the parser in the official Sleep distribution does not conform to its corresponding documentation.
 Namely, it allows for missing semicolons after statements and missing commas between list items.
 Sleepy's parser will warn the user of these syntax errors, recover, and then continue parsing.

@@ -3,8 +3,8 @@
 
 import pathlib
 import ply
-import unittest
 from sleepy import *
+import unittest
 
 # These are scripts that should raise a lexer or parser error
 # Determined by greping for and 'checkError', 'Error:', and 'YourCodeSucks'
@@ -15,17 +15,18 @@ illformedScripts = [
     'errors2.sl',
     'errors3.sl',
     'errors5.sl',
+    'hoeserror.sl',
     'keyvalueerr.sl',
     'noterm.sl',
     'noterm2.sl',
     'scalref.sl',
+    'sillysyntax.sl',
     # The real sleep code catches this as a runtime error due to '*8' not being a defined operator
     # Sleepy does not support operator bridges because it will cause unexpected precedence issues 
     # It this should actually be caught as a syntax error
     'warn.sl',
-    # Skipped because sleepy doesn't parse literals or object expressions
+    # Skipped because sleepy doesn't parse literals
     # 'errors4.sl',
-    # 'hoeserror.sl',
     # 'sillysyntax.sl'
 ]
 
@@ -115,10 +116,6 @@ class TestCase3Ast(unittest.TestCase):
             self.assertEqual(len(tokenList1), len(tokenList2))
             for token1, token2 in zip(tokenList1, tokenList2):
                 self.assertEqual(token1.type, token2.type)
-                # Temporary normilization until object expressions are fully parsed
-                if token1.type == 'OBJECT_EXPR':
-                    token1.value = re.sub(' +', ' ', token1.value)
-                    token2.value = re.sub(' +', ' ', token2.value)
                 self.assertEqual(token1.value, token2.value)
  
 if __name__ == '__main__':

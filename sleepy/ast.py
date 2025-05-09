@@ -187,7 +187,7 @@ class Script(AST):
                     key = statement.identifier
                 Script.xrefs.data[key] = sorted(list(set(Script.xrefs.data[key] + self.__calls)))
         return Script.xrefs.data
-    
+
 # Commands
 
 @dataclass
@@ -345,13 +345,13 @@ class backtick_expression(expression, str):
     def __str__(self):
         return self.parenthesize('`{}`'.format(str.__str__(self)))
 
+class class_literal(expression, str):
+    ...
+    
 class hashtable(expression, str):
     ...
 
 class identifier(expression, str):
-    ...
-
-class java_class(expression, str):
     ...
 
 class literal(expression, str):
@@ -361,11 +361,7 @@ class literal(expression, str):
 class long(expression, int):
     def __str__(self):
         return self.parenthesize('{}L'.format(int.__str__(self)))
-
-class object_expression(expression, str):
-    def __str__(self):
-        return self.parenthesize('[{}]'.format(str.__str__(self)))
-
+    
 class scalar(expression, str):
     ...
 
@@ -441,7 +437,19 @@ class Index(expression):
 
     def __str__(self):
         return self.parenthesize('{}[{}]'.format(self.container, self.element))
-    
+
+@dataclass
+class ObjectExpression(expression):
+    target: expression
+    message: str | None
+    args: list[Arg] | None
+
+    def __str__(self):
+        return '[{}'.format(self.target) + \
+            (' {}'.format(self.message) if self.message else '') + \
+            (': {}'.format(', '.join(str(_) for _ in self.args)) if self.args else '') + \
+            ']'
+
 @dataclass
 class UnaryOp(expression):
     op: str
@@ -451,7 +459,9 @@ class UnaryOp(expression):
         # Adding a space for predicate bridges
         op = self.op + (' ' if len(self.op) > 1 and self.op[0] == '-' and self.op[1] != '-' else '')
         return self.parenthesize(op + str(self.operand) if op not in ['++', '--'] else str(self.operand) + op)
-    
+
+# Functions
+
 def format(node: AST):
     return str(node)
 

@@ -67,9 +67,9 @@ def p_rvalue(p):
     ''' rvalue : address
                | backtick_expr
                | block
+               | class_literal
                | function_call
                | identifier
-               | java_class
                | literal
                | lvalue
                | object_expr
@@ -148,6 +148,11 @@ def p_backtick_expr(p):
     '''
     p[0] = backtick_expression(p[1])
 
+def p_class_literal(p):
+    ''' class_literal : CLASS_LITERAL
+    '''
+    p[0] = class_literal(p[1])
+
 def p_hashtable(p):
     ''' hashtable : '%' identifier
     '''
@@ -159,19 +164,86 @@ def p_identifier(p):
     p[0] = identifier(p[1])
 
 def p_java_class(p):
-    ''' java_class : JAVA_CLASS
+    ''' java_class : java_class '.' identifier
+                   | identifier
     '''
-    p[0] = java_class(p[1])
+    if len(p) == 4:
+        p[0] = ''.join(p[1:])
+    else:
+        p[0] = p[1]
 
 def p_literal(p):
     ''' literal : LITERAL
     '''
     p[0] = literal(p[1])
 
-def p_object_expr(p):
-    ''' object_expr : OBJECT_EXPR
+# An object expression message can be any Java identifier or
+# java class name. That second form is true when the object
+# expression target is 'new'. Due sleepy's lexer having to
+# tokenize keywords for the Sleep language, we have to readd
+# all of those keywords here since they are still valid Java
+# identifiers. We also do not explicitly list 'identifier' as
+# an option because that is already included in the definition
+# of the java_class rule.
+def p_object_expr_message(p):
+    ''' object_expr_message : java_class
+                            | ASSERT
+                            | BREAK
+                            | CALLCC
+                            | CATCH
+                            | CONTINUE
+                            | DONE
+                            | ELSE
+                            | FOR
+                            | FOREACH
+                            | FROM
+                            | HALT
+                            | IF
+                            | IMPORT
+                            | RETURN
+                            | THROW
+                            | TRY
+                            | WHILE
+                            | YIELD
     '''
-    p[0] = object_expression(p[1])
+    p[0] = p[1]
+
+def p_object_expr(p):
+    ''' object_expr : '[' expression ']'
+                    | '[' expression ':' args ']'
+                    | '[' expression object_expr_message ']'
+                    | '[' expression object_expr_message ':' args ']'
+    '''
+    if len(p) == 4: # '[' expression ']'
+        p[0] = ObjectExpression(
+            target=p[2],
+            message=None,
+            args=None
+        )
+    elif len(p) == 6: # '[' expression ':' args ']'
+        p[0] = ObjectExpression(
+            target=p[2],
+            message=None,
+            args=p[4]
+        )
+    elif len(p) == 5: # '[' expression expression ']'
+        p[0] = ObjectExpression(
+            target=p[2],
+            message=p[3],
+            args=None
+        )
+    else: # '[' expression expression ':' args ']'
+        if not len(p[5]):
+            if failfast:
+                raise SyntaxError(str(p))
+            if not quiet:
+                print('- Did you forget to add one or more arguments?')
+        else:
+            p[0] = ObjectExpression(
+                target=p[2],
+                message=p[3],
+                args=p[5]
+            )
 
 def p_scalar(p):
     ''' scalar : SCALAR
@@ -250,13 +322,30 @@ def p_expression_binary(p):
             right=p[3],
         )
 
+# An expression index is of the form:
+# - expression '[' expression ']'
+# We would ideally use this definition, but that is
+# already included in the definition of object_expr.
+# Defining it twice would cause parsing conflicts so
+# we simple reuse object_expr's definition here to
+# avoid thos conflicts. p[2] will originally be an
+# ObjectExpression Python object due to that, which
+# we will manually convert to a Index object because
+# arbitrary object expressions cannot be used for
+# indexing a container.
 def p_expression_index(p):
-    ''' expression : expression '[' expression ']'
+    ''' expression : expression object_expr
     '''
-    p[0] = Index(
-        container=p[1],
-        element=p[3]
-    )
+    if not p[2].message and not p[2].args:
+        p[0] = Index(
+            container=p[1],
+            element=p[2].target
+        )
+    else:
+        # Only object expressions of the form '[value]' may be
+        # used for expression indexes. All other forms are not
+        # allowed.
+        raise SyntaxError(str(p))
 
 def p_expression_unary_prefix(p):
     ''' expression : '+' expression %prec UNARY_PLUS
