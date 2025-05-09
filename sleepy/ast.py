@@ -347,7 +347,7 @@ class backtick_expression(expression, str):
 
 class class_literal(expression, str):
     ...
-    
+
 class hashtable(expression, str):
     ...
 
@@ -439,7 +439,7 @@ class Index(expression):
         return self.parenthesize('{}[{}]'.format(self.container, self.element))
 
 @dataclass
-class ObjectExpression(expression):
+class ObjExpr(expression):
     target: expression
     message: str | None
     args: list[Arg] | None

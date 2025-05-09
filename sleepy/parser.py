@@ -215,19 +215,19 @@ def p_object_expr(p):
                     | '[' expression object_expr_message ':' args ']'
     '''
     if len(p) == 4: # '[' expression ']'
-        p[0] = ObjectExpression(
+        p[0] = ObjExpr(
             target=p[2],
             message=None,
             args=None
         )
     elif len(p) == 6: # '[' expression ':' args ']'
-        p[0] = ObjectExpression(
+        p[0] = ObjExpr(
             target=p[2],
             message=None,
             args=p[4]
         )
     elif len(p) == 5: # '[' expression expression ']'
-        p[0] = ObjectExpression(
+        p[0] = ObjExpr(
             target=p[2],
             message=p[3],
             args=None
@@ -239,7 +239,7 @@ def p_object_expr(p):
             if not quiet:
                 print('- Did you forget to add one or more arguments?')
         else:
-            p[0] = ObjectExpression(
+            p[0] = ObjExpr(
                 target=p[2],
                 message=p[3],
                 args=p[5]
@@ -329,8 +329,8 @@ def p_expression_binary(p):
 # Defining it twice would cause parsing conflicts so
 # we simple reuse object_expr's definition here to
 # avoid thos conflicts. p[2] will originally be an
-# ObjectExpression Python object due to that, which
-# we will manually convert to a Index object because
+# ObjExpr Python object due to that, which we will
+# manually convert to a Index object because
 # arbitrary object expressions cannot be used for
 # indexing a container.
 def p_expression_index(p):
