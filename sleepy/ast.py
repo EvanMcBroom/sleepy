@@ -17,17 +17,17 @@ indention = '    '
 
 # Base classes
 
-class AST:
+class Ast:
     start_lineno: int
     comment: str | None # Inline comment
 
-class flow_control(AST):
+class FlowControl(Ast):
     ...
 
-class command(AST):
+class Command(Ast):
     ...
 
-class expression(command):
+class Expression(Command):
     parenthesized: bool = False
 
     def __str__(self):
@@ -39,9 +39,9 @@ class expression(command):
 # High level classes
 
 @dataclass
-class Arg(AST):
-    name: str | int | expression | None
-    value: expression | None
+class Arg(Ast):
+    name: str | int | Expression | None
+    value: Expression | None
     trailing_sep: bool = False
 
     def __str__(self):
@@ -51,19 +51,19 @@ class Arg(AST):
 # Values
 
 @dataclass
-class Boolean(AST):
+class Boolean(Ast):
     value: bool
 
     def __str__(self):
         return 'true' if self.value else 'false'
 
 @dataclass
-class Null(AST):
+class Null(Ast):
     def __str__(self):
         return '$null'
      
 @dataclass
-class Long(AST):
+class Long(Ast):
     value: int
 
     def __str__(self):
@@ -71,40 +71,40 @@ class Long(AST):
     
 # Single line comment
 @dataclass
-class Comment(AST):
+class Comment(Ast):
     message: str
 
     def __str__(self):
         return '# ' + self.message
     
 @dataclass
-class KvPair(AST):
-    name: expression
-    value: expression
+class KvPair(Ast):
+    name: Expression
+    value: Expression
 
     def __str__(self):
         return self.name + ' => ' + self.value
     
 @dataclass
-class LineBreak(AST):
+class LineBreak(Ast):
     count: int
 
     def __str__(self):
         return ''
 
 @dataclass
-class LvalueTuple(AST):
+class LvalueTuple(Ast):
     values: tuple
 
     def __str__(self):
         return '({})'.format(', '.join(_ for _ in self.values))
       
 @dataclass
-class Script(AST):
-    body: list[flow_control | command]
+class Script(Ast):
+    body: list[FlowControl | Command]
 
     def __str__(self):
-        body = [str(_) + (';' if isinstance(_, command) else '') for _ in self.body if _]
+        body = [str(_) + (';' if isinstance(_, Command) else '') for _ in self.body if _]
         return eol.join(body)
     
     __calls = list()
@@ -124,7 +124,7 @@ class Script(AST):
                 return True
         return False
     
-    # Returns an AST for a specified function.
+    # Returns an Ast for a specified function.
     def function(self, name, useCache=True):
         self.functions(useCache)
         matches = [_ for _ in Script.functions.data if _.identifier == name]
@@ -154,7 +154,7 @@ class Script(AST):
         while queue:
             # get the first path from the queue
             path = queue.pop(0)
-            # get the last node from the path
+            # get the lAst node from the path
             node = path[-1]
             # path found
             if node == end:
@@ -191,42 +191,42 @@ class Script(AST):
 # Commands
 
 @dataclass
-class Assert(command):
-    test: expression
+class Assert(Command):
+    test: Expression
     message: string | None
 
     def __str__(self):
         return 'assert {}{}'.format(self.test, ' : ' + str(self.message) if self.message != None else '')
     
 @dataclass
-class Break(command):
+class Break(Command):
     def __str__(self):
         return 'break'
 
 @dataclass
-class Callcc(command):
-    closure: AST
+class Callcc(Command):
+    closure: Ast
 
     def __str__(self):
         return 'callcc {}'.format(self.closure)
 
 @dataclass
-class Continue(command):
+class Continue(Command):
     def __str__(self):
         return 'continue'
 
 @dataclass
-class Done(command):
+class Done(Command):
     def __str__(self):
         return 'done'
 
 @dataclass
-class Halt(command):
+class Halt(Command):
     def __str__(self):
         return 'halt'
 
 @dataclass
-class Import(command):
+class Import(Command):
     target: str
     path: str | None
 
@@ -234,27 +234,27 @@ class Import(command):
         return 'import {}{}'.format(self.target, ' from: {}'.format(self.path) if self.path != None else '')
 
 @dataclass
-class Nop(command):
+class Nop(Command):
     def __str__(self):
         return ''
     
 @dataclass
-class Return(command):
-    value: expression | object | None
+class Return(Command):
+    value: Expression | object | None
 
     def __str__(self):
         return 'return{}'.format(' ' + str(self.value) if self.value != None else '')
     
 @dataclass
-class Throw(command):
-    value: expression
+class Throw(Command):
+    value: Expression
 
     def __str__(self):
         return 'throw {}'.format(self.value)
 
 @dataclass
-class Yield(command):
-    value: expression | None
+class Yield(Command):
+    value: Expression | None
 
     def __str__(self):
         return 'yield{}'.format(' ' + str(self.value) if self.value != None else '')
@@ -262,16 +262,16 @@ class Yield(command):
 # Flow control
 
 @dataclass
-class AssignLoop(flow_control):
+class AssignLoop(FlowControl):
     value: str
-    generator: expression
+    generator: Expression
     body: Block
 
     def __str__(self):
         return 'while {} ({}) {}'.format(self.value, self.generator, self.body)
     
 @dataclass
-class EnvBridge(flow_control):
+class EnvBridge(FlowControl):
     keyword: str
     identifier: str
     string: str | None
@@ -281,10 +281,10 @@ class EnvBridge(flow_control):
         return '{} {}{} {}'.format(self.keyword, self.identifier, (self.string if self.string != None else ''), self.body)
 
 @dataclass
-class For(flow_control):
-    initializer: list[expression]
-    test: expression
-    increment: list[expression]
+class For(FlowControl):
+    initializer: list[Expression]
+    test: Expression
+    increment: list[Expression]
     body: Block
 
     def __str__(self):
@@ -297,18 +297,18 @@ class For(flow_control):
         return 'for ({};{};{}) {}'.format(', '.join(str(_) for _ in self.initializer), test, increment, self.body)
     
 @dataclass
-class Foreach(flow_control):
+class Foreach(FlowControl):
     index: str | None
     value: str
-    generator: expression
+    generator: Expression
     body: Block
 
     def __str__(self):
         return 'foreach {}{} ({}) {}'.format((self.index + ' => ' if self.index else ''), self.value, self.generator, self.body)
 
 @dataclass
-class If(flow_control):
-    test: expression
+class If(FlowControl):
+    test: Expression
     body: Block
     orelse: If | Block | None
 
@@ -316,7 +316,7 @@ class If(flow_control):
         return 'if ({}) {}{}'.format(self.test, self.body, (eol + 'else ' + str(self.orelse)) if self.orelse else '')
     
 @dataclass
-class TryCatch(flow_control):
+class TryCatch(FlowControl):
     body: Block
     value: object
     handler: Block
@@ -325,8 +325,8 @@ class TryCatch(flow_control):
         return 'try {}{}catch {} {}'.format(self.body, eol, self.value, self.handler)
      
 @dataclass
-class While(flow_control):
-    test: expression
+class While(FlowControl):
+    test: Expression
     body: Block
 
     def __str__(self):
@@ -335,45 +335,41 @@ class While(flow_control):
 
 # Values
 
-class address(expression, str):
+class Address(Expression, str):
     ...
 
-class array(expression, str):
+class Array(Expression, str):
     ...
 
-class backtick_expression(expression, str):
+class BacktickExpr(Expression, str):
     def __str__(self):
         return self.parenthesize('`{}`'.format(str.__str__(self)))
 
-class class_literal(expression, str):
+class ClassLiteral(Expression, str):
     ...
 
-class hashtable(expression, str):
+class HashTable(Expression, str):
     ...
 
-class identifier(expression, str):
+class Identifier(Expression, str):
     ...
 
-class literal(expression, str):
+class Literal(Expression, str):
     def __str__(self):
         return self.parenthesize("'{}'".format(str.__str__(self)))
-
-class long(expression, int):
-    def __str__(self):
-        return self.parenthesize('{}L'.format(int.__str__(self)))
     
-class scalar(expression, str):
+class Scalar(Expression, str):
     ...
 
-class string(expression, str):
+class String(Expression, str):
     def __str__(self):
         return self.parenthesize('"{}"'.format(str.__str__(self)))
      
 # Expressions
 
 @dataclass
-class Block(expression):
-    body: list[command | flow_control]
+class Block(Expression):
+    body: list[Command | FlowControl]
 
     def __str__(self):
         body = []
@@ -408,12 +404,12 @@ class Block(expression):
             # Indent the first line which has not been done yet
             body += [
                 indention + indentedStatement +
-                (';' if isinstance(statement, command) else '') + eol
+                (';' if isinstance(statement, Command) else '') + eol
             ]
         return self.parenthesize('{' + eol + ''.join(body) + '}')
     
 @dataclass
-class Call(expression):
+class Call(Expression):
     function: str
     args: list[Arg]
 
@@ -421,26 +417,26 @@ class Call(expression):
         return self.parenthesize('{}({})'.format(self.function, ', '.join([str(_) for _ in self.args])))
     
 @dataclass
-class BinOp(expression):
-    left: expression
+class BinOp(Expression):
+    left: Expression
     op: str
-    right: expression
+    right: Expression
     negate: bool = False
 
     def __str__(self):
         return self.parenthesize('{} {}{} {}'.format(self.left, '!' if self.negate else '', self.op, self.right))
     
 @dataclass
-class Index(expression):
-    container: expression
-    element: expression
+class Index(Expression):
+    container: Expression
+    element: Expression
 
     def __str__(self):
         return self.parenthesize('{}[{}]'.format(self.container, self.element))
 
 @dataclass
-class ObjExpr(expression):
-    target: expression
+class ObjExpr(Expression):
+    target: Expression
     message: str | None
     args: list[Arg] | None
 
@@ -451,9 +447,9 @@ class ObjExpr(expression):
             ']'
 
 @dataclass
-class UnaryOp(expression):
+class UnaryOp(Expression):
     op: str
-    operand: expression
+    operand: Expression
 
     def __str__(self):
         # Adding a space for predicate bridges
@@ -462,7 +458,7 @@ class UnaryOp(expression):
 
 # Functions
 
-def format(node: AST):
+def format(node: Ast):
     return str(node)
 
 def walk(node, visitor=None):

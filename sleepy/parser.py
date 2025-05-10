@@ -135,33 +135,33 @@ def p_assignment_operator(p):
 def p_address(p):
     ''' address : ADDRESS
     '''
-    p[0] = address(p[1])
+    p[0] = Address(p[1])
 
 def p_array(p):
     ''' array : '@' identifier
     '''
-    p[0] = array(p[1] + p[2])
+    p[0] = Array(p[1] + p[2])
 
 
 def p_backtick_expr(p):
     ''' backtick_expr : BACKTICK_EXPR
     '''
-    p[0] = backtick_expression(p[1])
+    p[0] = BacktickExpr(p[1])
 
 def p_class_literal(p):
     ''' class_literal : CLASS_LITERAL
     '''
-    p[0] = class_literal(p[1])
+    p[0] = ClassLiteral(p[1])
 
 def p_hashtable(p):
     ''' hashtable : '%' identifier
     '''
-    p[0] = hashtable(p[1] + p[2])
+    p[0] = HashTable(p[1] + p[2])
 
 def p_identifier(p):
     ''' identifier : ID
     '''
-    p[0] = identifier(p[1])
+    p[0] = Identifier(p[1])
 
 def p_java_class(p):
     ''' java_class : java_class '.' identifier
@@ -175,7 +175,7 @@ def p_java_class(p):
 def p_literal(p):
     ''' literal : LITERAL
     '''
-    p[0] = literal(p[1])
+    p[0] = Literal(p[1])
 
 # An object expression message can be any Java identifier or
 # java class name. That second form is true when the object
@@ -248,12 +248,12 @@ def p_object_expr(p):
 def p_scalar(p):
     ''' scalar : SCALAR
     '''
-    p[0] = scalar(p[1])
+    p[0] = Scalar(p[1])
 
 def p_string(p):
     ''' string : STRING
     '''
-    p[0] = string(p[1])
+    p[0] = String(p[1])
 
 def p_expression_rvalue(p):
     ''' expression : rvalue
