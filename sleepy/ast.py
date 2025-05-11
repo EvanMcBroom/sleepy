@@ -193,7 +193,7 @@ class Script(Ast):
 @dataclass
 class Assert(Command):
     test: Expression
-    message: string | None
+    message: str | None
 
     def __str__(self):
         return 'assert {}{}'.format(self.test, ' : ' + str(self.message) if self.message != None else '')
