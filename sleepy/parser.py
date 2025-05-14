@@ -704,7 +704,7 @@ def p_environment_bridge(p):
             string=p[3],
             body=p[4]
         )
-    elif isinstance(p[2], str): # identifier string block
+    elif type(p[2]) == str: # identifier string block
         p[0] = EnvBridge(
             keyword=p[1],
             identifier=None,
