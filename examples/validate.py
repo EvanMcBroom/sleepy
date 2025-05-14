@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Converts a sleep script is syntactically correct.
+# Checks that a sleep script is syntactically correct.
 
 import sys
 from sleepy.parser import *
