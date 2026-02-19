@@ -260,3 +260,24 @@ class SleepLexer(object):
             return next(self.token_stream)
         except StopIteration:
             return None
+
+# Functions
+
+def preprocess(script, repair_missing_semicolons=True):
+    repairedScript = []
+    lexer = SleepLexer()
+    lexer.input(script)
+    previousToken = None
+    for token in lexer:
+        if token.type == 'EOF':
+            break
+        if previousToken:
+            repairedScript.append(script[previousToken.lexpos:token.lexpos])
+        if repair_missing_semicolons and token and token.type == '}' and previousToken and previousToken.type not in (';', '{', '}'):
+            repairedScript[-1] = repairedScript[-1].replace(previousToken.value, previousToken.value + ';')
+        previousToken = token
+    if previousToken:
+        repairedScript.append(script[previousToken.lexpos:])
+        if previousToken.type not in (';', '{', '}'):
+            repairedScript.append(';')
+    return ''.join(repairedScript)

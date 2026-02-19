@@ -469,7 +469,7 @@ def p_statement(p):
     '''
     p[0] = p[1]
 
-# Statements should be seperated by a comma as 
+# Statements should be seperated by a semicolon
 # The official sleep parser allows for space seperators but we'll flag it
 def p_statement_error(p):
     ''' statement : error
@@ -601,7 +601,7 @@ def p_lvalues(p):
     else: # lvalues ','
         p[0] = p[1]
 
-# lvalues should be seperated by a comma as 
+# lvalues should be seperated by a comma
 # The official sleep parser allows for space seperators but we'll flag it
 def p_lvalues_error(p):
     ''' lvalues : lvalues error lvalue
@@ -819,11 +819,6 @@ class SleepParser(object):
         self.debug = kwargs.get('debug', False)
         self.lexer = kwargs.get('lexer', SleepLexer())
         parser = yacc.yacc(start="script", debug=self.debug)
-
-    # Tracks comments and linebreaks which must be stripped by the lexer
-    # Otherwise, a formal grammar cannot be fully defined for the parser
-    def __preprocess(self, code: str):
-        pass
 
     def parse(self, code, tracking=False):
         global parser
