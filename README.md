@@ -11,6 +11,8 @@ This change should not cause any issues.
 One issue that was encountered when developing Sleepy is that the parser in the official Sleep distribution does not conform to its corresponding documentation.
 Namely, it allows for missing semicolons after statements and missing commas between list items.
 Sleepy's parser will warn the user of these syntax errors, recover, and then continue parsing.
+The resultant abstract syntax tree will have nodes set to `None` where these syntax errors occurred.
+Sleepy's preprocessor may be used to fix some of these syntax errors before lexing or parsing occurs.
 
 This project is released under an MIT license.
 The unit tests are included from the [official Sleep distribution](http://sleep.dashnine.org/download.html) which is released under a [BSD-3 license](https://github.com/rsmudge/sleep/blob/master/license.txt) and copyrighted to [Raphael Mudge](https://github.com/rsmudge/sleep/tree/master).

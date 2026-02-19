@@ -469,7 +469,7 @@ def p_statement(p):
     '''
     p[0] = p[1]
 
-# Statements should be seperated by a comma as 
+# Statements should be seperated by a semicolon
 # The official sleep parser allows for space seperators but we'll flag it
 def p_statement_error(p):
     ''' statement : error
@@ -601,7 +601,7 @@ def p_lvalues(p):
     else: # lvalues ','
         p[0] = p[1]
 
-# lvalues should be seperated by a comma as 
+# lvalues should be seperated by a comma
 # The official sleep parser allows for space seperators but we'll flag it
 def p_lvalues_error(p):
     ''' lvalues : lvalues error lvalue
@@ -820,87 +820,6 @@ class SleepParser(object):
         self.lexer = kwargs.get('lexer', SleepLexer())
         parser = yacc.yacc(start="script", debug=self.debug)
 
-    # Tracks comments and linebreaks which must be stripped by the lexer
-    # Otherwise, a formal grammar cannot be fully defined for the parser
-    def __preprocess(self, code: str):
-        pass
-
-    # Some Cobalt Strike scripts omit semicolons before a block close ('}').
-    # Sleepy recovers from this with an error production and may drop the
-    # command node. Repair the source minimally by injecting ';' before '}'
-    # (and at EOF) when the previous significant token is a command/expression.
-    def __repair_missing_semicolons(self, code: str) -> str:
-        lexer = SleepLexer()
-        lexer.input(code)
-
-        repaired = []
-        cursor = 0
-        prev_sig_type = None
-
-        while True:
-            tok = lexer.token()
-            if tok is None or tok.type == 'EOF':
-                break
-
-            if tok.type == '}' and prev_sig_type not in (None, ';', '{', '}'):
-                repaired.append(code[cursor:tok.lexpos])
-                repaired.append(';')
-                cursor = tok.lexpos
-
-            prev_sig_type = tok.type
-
-        repaired.append(code[cursor:])
-
-        if prev_sig_type not in (None, ';', '{', '}'):
-            repaired.append(';\n')
-
-        return ''.join(repaired)
-
-    # PLY error-recovery can keep parsing but drop statements as None.
-    # Detect those holes to trigger a surgical reparse of repaired source.
-    def __has_dropped_nodes(self, node, seen=None) -> bool:
-        if seen is None:
-            seen = set()
-
-        if node is None:
-            return False
-
-        node_id = id(node)
-        if node_id in seen:
-            return False
-        seen.add(node_id)
-
-        if isinstance(node, list):
-            for item in node:
-                if item is None:
-                    return True
-                if self.__has_dropped_nodes(item, seen):
-                    return True
-            return False
-
-        if isinstance(node, tuple):
-            for item in node:
-                if self.__has_dropped_nodes(item, seen):
-                    return True
-            return False
-
-        if isinstance(node, dict):
-            for key, value in node.items():
-                if self.__has_dropped_nodes(key, seen):
-                    return True
-                if self.__has_dropped_nodes(value, seen):
-                    return True
-            return False
-
-        if hasattr(node, '__dict__'):
-            for value in vars(node).values():
-                if isinstance(value, (list, tuple, dict)) and self.__has_dropped_nodes(value, seen):
-                    return True
-                if hasattr(value, '__dict__') and self.__has_dropped_nodes(value, seen):
-                    return True
-
-        return False
-
     def parse(self, code, tracking=False):
         global parser
         script = parser.parse(code, tracking=tracking)
@@ -915,6 +834,9 @@ class SleepParser(object):
                 if not self.__has_dropped_nodes(repaired_script):
                     return repaired_script
 
+    def parse(self, code, tracking=False):
+        global parser
+        script = parser.parse(code, tracking=tracking)
         # Some sleep scripts are published with syntax errors because
         # the sleep interpreter that ships with Cobalt Strike does not
         # fully conform to the specification for the language. Namely,
@@ -928,6 +850,4 @@ class SleepParser(object):
         # situation, the parser would fail and return None. This check
         # is to identify that failure case, manually modify the original
         # script to fix the issue, then reattempt parsing the file.
-        if script:
-            return script
-        return parser.parse(repaired_code + ';\n', tracking=tracking)
+        return script if script else parser.parse(code + ';\n', tracking=tracking)
