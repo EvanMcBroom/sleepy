@@ -825,9 +825,96 @@ class SleepParser(object):
     def __preprocess(self, code: str):
         pass
 
+    # Some Cobalt Strike scripts omit semicolons before a block close ('}').
+    # Sleepy recovers from this with an error production and may drop the
+    # command node. Repair the source minimally by injecting ';' before '}'
+    # (and at EOF) when the previous significant token is a command/expression.
+    def __repair_missing_semicolons(self, code: str) -> str:
+        lexer = SleepLexer()
+        lexer.input(code)
+
+        repaired = []
+        cursor = 0
+        prev_sig_type = None
+
+        while True:
+            tok = lexer.token()
+            if tok is None or tok.type == 'EOF':
+                break
+
+            if tok.type == '}' and prev_sig_type not in (None, ';', '{', '}'):
+                repaired.append(code[cursor:tok.lexpos])
+                repaired.append(';')
+                cursor = tok.lexpos
+
+            prev_sig_type = tok.type
+
+        repaired.append(code[cursor:])
+
+        if prev_sig_type not in (None, ';', '{', '}'):
+            repaired.append(';\n')
+
+        return ''.join(repaired)
+
+    # PLY error-recovery can keep parsing but drop statements as None.
+    # Detect those holes to trigger a surgical reparse of repaired source.
+    def __has_dropped_nodes(self, node, seen=None) -> bool:
+        if seen is None:
+            seen = set()
+
+        if node is None:
+            return False
+
+        node_id = id(node)
+        if node_id in seen:
+            return False
+        seen.add(node_id)
+
+        if isinstance(node, list):
+            for item in node:
+                if item is None:
+                    return True
+                if self.__has_dropped_nodes(item, seen):
+                    return True
+            return False
+
+        if isinstance(node, tuple):
+            for item in node:
+                if self.__has_dropped_nodes(item, seen):
+                    return True
+            return False
+
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if self.__has_dropped_nodes(key, seen):
+                    return True
+                if self.__has_dropped_nodes(value, seen):
+                    return True
+            return False
+
+        if hasattr(node, '__dict__'):
+            for value in vars(node).values():
+                if isinstance(value, (list, tuple, dict)) and self.__has_dropped_nodes(value, seen):
+                    return True
+                if hasattr(value, '__dict__') and self.__has_dropped_nodes(value, seen):
+                    return True
+
+        return False
+
     def parse(self, code, tracking=False):
         global parser
         script = parser.parse(code, tracking=tracking)
+        if script and not self.__has_dropped_nodes(script):
+            return script
+
+        repaired_code = self.__repair_missing_semicolons(code)
+        if repaired_code != code:
+            repaired_script = parser.parse(repaired_code, tracking=tracking)
+            if repaired_script:
+                script = repaired_script
+                if not self.__has_dropped_nodes(repaired_script):
+                    return repaired_script
+
         # Some sleep scripts are published with syntax errors because
         # the sleep interpreter that ships with Cobalt Strike does not
         # fully conform to the specification for the language. Namely,
@@ -841,4 +928,6 @@ class SleepParser(object):
         # situation, the parser would fail and return None. This check
         # is to identify that failure case, manually modify the original
         # script to fix the issue, then reattempt parsing the file.
-        return script if script else parser.parse(code + ';\n', tracking=tracking)
+        if script:
+            return script
+        return parser.parse(repaired_code + ';\n', tracking=tracking)
