@@ -823,20 +823,6 @@ class SleepParser(object):
     def parse(self, code, tracking=False):
         global parser
         script = parser.parse(code, tracking=tracking)
-        if script and not self.__has_dropped_nodes(script):
-            return script
-
-        repaired_code = self.__repair_missing_semicolons(code)
-        if repaired_code != code:
-            repaired_script = parser.parse(repaired_code, tracking=tracking)
-            if repaired_script:
-                script = repaired_script
-                if not self.__has_dropped_nodes(repaired_script):
-                    return repaired_script
-
-    def parse(self, code, tracking=False):
-        global parser
-        script = parser.parse(code, tracking=tracking)
         # Some sleep scripts are published with syntax errors because
         # the sleep interpreter that ships with Cobalt Strike does not
         # fully conform to the specification for the language. Namely,
