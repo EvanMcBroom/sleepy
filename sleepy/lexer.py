@@ -274,7 +274,10 @@ def preprocess(script, repair_missing_semicolons=True):
         if previousToken:
             repairedScript.append(script[previousToken.lexpos:token.lexpos])
         if repair_missing_semicolons and token and token.type == '}' and previousToken and previousToken.type not in (';', '{', '}'):
-            repairedScript[-1] = repairedScript[-1].replace(previousToken.value, previousToken.value + ';')
+            # Insert semicolon by position before the closing brace.
+            # Do not replace token text, because token values for quoted strings/literals are unquoted
+            # and text replacement can corrupt literal content.
+            repairedScript.append(';')
         previousToken = token
     if previousToken:
         repairedScript.append(script[previousToken.lexpos:])
